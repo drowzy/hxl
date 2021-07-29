@@ -24,6 +24,7 @@ defmodule HCL.Parser do
   close_brace = string("}")
   ## VALUE
   int = integer(min: 1)
+
   string_lit =
     ignore(string(~s(")))
     |> utf8_string([?a..?z, ?A..?Z], min: 1)
@@ -37,13 +38,14 @@ defmodule HCL.Parser do
     |> concat(int)
 
   block =
-    identifier
+    optional(blankspace)
+    |> concat(identifier)
     |> concat(blankspace)
     |> choice([identifier, string_lit])
     |> concat(blankspace)
     |> ignore(open_brace)
     |> repeat(ignore(whitespace))
-    |> concat(attr)
+    |> parsec(:body)
     |> ignore(whitespace)
     |> ignore(close_brace)
 
@@ -52,5 +54,5 @@ defmodule HCL.Parser do
   defcombinatorp(:body, choice([attr, block]), export_metadata: true)
 
   defparsec(:parse_block, parsec(:block) |> eos())
-  defparsec(:parse, parsec(:body) |> eos())
+  defparsec(:parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())
 end
