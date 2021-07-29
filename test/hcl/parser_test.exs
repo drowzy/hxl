@@ -43,5 +43,18 @@ defmodule HCL.ParserTest do
 
       {:ok, ["service", "http", "command", "process", "a", 1], _, _, _, _} = Parser.parse(hcl)
     end
+
+    test "parses block and attrs inside a block" do
+      hcl = """
+      service http {
+        a = 1
+        b = 2
+        command process {
+          c = 3
+        }
+      }
+      """
+      {:ok, ["service", "http", "a", 1, "b", 2, "command", "process", "c", 3], _, _, _, _} = Parser.parse(hcl)
+    end
   end
 end

@@ -45,8 +45,7 @@ defmodule HCL.Parser do
     |> concat(blankspace)
     |> ignore(open_brace)
     |> repeat(ignore(whitespace))
-    |> parsec(:body)
-    |> ignore(whitespace)
+    |> repeat(parsec(:body) |> ignore(optional(whitespace)))
     |> ignore(close_brace)
 
   defcombinatorp(:attr, attr, export_metadata: true)
