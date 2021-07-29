@@ -45,12 +45,12 @@ defmodule HCL.Parser do
     |> concat(blankspace)
     |> ignore(open_brace)
     |> repeat(ignore(whitespace))
-    |> repeat(parsec(:body) |> ignore(optional(whitespace)))
+    |> parsec(:body)
     |> ignore(close_brace)
 
   defcombinatorp(:attr, attr, export_metadata: true)
   defcombinatorp(:block, block, export_metadata: true)
-  defcombinatorp(:body, choice([attr, block]), export_metadata: true)
+  defcombinatorp(:body, repeat(choice([attr, block]) |> ignore(optional(whitespace))), export_metadata: true)
 
   defparsec(:parse_block, parsec(:block) |> eos())
   defparsec(:parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())

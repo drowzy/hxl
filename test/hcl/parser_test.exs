@@ -2,6 +2,28 @@ defmodule HCL.ParserTest do
   use ExUnit.Case
   alias HCL.Parser
 
+  describe "body parser" do
+    test "supports multiple attrs" do
+      hcl = """
+      a = 1
+      b = 2
+      """
+
+      {:ok, ["a", 1, "b", 2], _, _, _, _} = Parser.parse(hcl)
+    end
+
+    test "supports attrs & blocks" do
+      hcl = """
+      a = 1
+      service http {
+        b = 2
+      }
+      """
+
+      {:ok, ["a", 1, "service", "http", "b", 2], _, _, _, _} = Parser.parse(hcl)
+    end
+  end
+
   describe "attr parser" do
     test "parses attr assignment with spaces" do
       assert {:ok, [id, value], _, _, _, _} = Parser.parse("a = 1")
