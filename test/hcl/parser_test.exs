@@ -65,6 +65,34 @@ defmodule HCL.ParserTest do
       assert {:ok, [id, null], _, _, _, _} = Parser.parse("a = null")
       assert is_nil(null)
     end
+
+    test "parses tuples of same type " do
+      assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = [1, 2, 3]")
+      assert values == [1, 2, 3]
+    end
+
+    test "parses tuples of different types " do
+      assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = [1, true, null]")
+      assert values == [1, true, nil]
+    end
+
+    test "parses objects of different types" do
+      assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = { a: 1, b: true }")
+      values = values
+      |> Enum.chunk_every(2)
+      |> Map.new(fn [k, v] -> {k, v} end)
+
+      assert values == %{"a" => 1, "b" => true}
+    end
+
+    test "parses object elems with `=` assignment" do
+      assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = { a = 1, b = true }")
+      values = values
+      |> Enum.chunk_every(2)
+      |> Map.new(fn [k, v] -> {k, v} end)
+
+      assert values == %{"a" => 1, "b" => true}
+    end
   end
 
   describe "block parser" do

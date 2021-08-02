@@ -33,7 +33,7 @@ defmodule HCL.Parser do
   # ### Literal Value
   # #### NumericLiteral
   int = integer(min: 1)
-  expmark = ascii_char([?e, ?E, ?+, ?-])
+  expmark = ascii_string([?e, ?E, ?+, ?-], max: 1)
 
   numeric_lit =
     int
@@ -68,7 +68,9 @@ defmodule HCL.Parser do
     |> ignore(assign)
     |> optional(blankspace)
     |> concat(literal_value)
+    |> ignore(optional(comma))
     |> ignore(optional(whitespace))
+
   object =
     ignore(open_brace)
     |> optional(blankspace)
