@@ -18,12 +18,20 @@ defmodule HCL.Parser do
   whitespace = ascii_string([?\s, ?\n], min: 1)
   blankspace = ignore(ascii_string([?\s], min: 1))
   eq = string("=")
+  dot = string(".")
   identifier = ascii_string([?a..?z, ?A..?Z], min: 1)
 
   open_brace = string("{")
   close_brace = string("}")
-  ## VALUE
+  ## Expr https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms
+  ## Literal Value
+  ## NumericLiteral
   int = integer(min: 1)
+  expmark = ascii_string([?e, ?E, ?+, ?-], min: 1)
+  numeric_lit =
+    int
+    |> optional(ignore(dot) |> concat(int))
+    |> optional(expmark)
 
   string_lit =
     ignore(string(~s(")))
@@ -35,7 +43,7 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> ignore(eq)
     |> optional(blankspace)
-    |> concat(int)
+    |> concat(numeric_lit)
 
   block =
     optional(blankspace)
@@ -50,7 +58,10 @@ defmodule HCL.Parser do
 
   defcombinatorp(:attr, attr, export_metadata: true)
   defcombinatorp(:block, block, export_metadata: true)
-  defcombinatorp(:body, repeat(choice([attr, block]) |> ignore(optional(whitespace))), export_metadata: true)
+
+  defcombinatorp(:body, repeat(choice([attr, block]) |> ignore(optional(whitespace))),
+    export_metadata: true
+  )
 
   defparsec(:parse_block, parsec(:block) |> eos())
   defparsec(:parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())

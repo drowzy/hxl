@@ -36,6 +36,20 @@ defmodule HCL.ParserTest do
       assert id == "a"
       assert value == 1
     end
+
+    test "parses decimal values" do
+      assert {:ok, [id | values], _, _, _, _} = Parser.parse("a = 1.1")
+      assert id == "a"
+      assert values == [1, 1]
+    end
+
+    test "parses decimal values with expmarks" do
+      for exp <- ["e", "E", "+", "-"] do
+        assert {:ok, [id | values], _, _, _, _} = Parser.parse("a = 1.1#{exp}")
+        assert id == "a"
+        assert values == [1, 1, exp]
+      end
+    end
   end
 
   describe "block parser" do
@@ -76,7 +90,9 @@ defmodule HCL.ParserTest do
         }
       }
       """
-      {:ok, ["service", "http", "a", 1, "b", 2, "command", "process", "c", 3], _, _, _, _} = Parser.parse(hcl)
+
+      {:ok, ["service", "http", "a", 1, "b", 2, "command", "process", "c", 3], _, _, _, _} =
+        Parser.parse(hcl)
     end
   end
 end
