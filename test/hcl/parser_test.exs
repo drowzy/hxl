@@ -45,10 +45,25 @@ defmodule HCL.ParserTest do
 
     test "parses decimal values with expmarks" do
       for exp <- ["e", "E", "+", "-"] do
-        assert {:ok, [id | values], _, _, _, _} = Parser.parse("a = 1.1#{exp}")
+        assert {:ok, [id | values], _, _, _, _} = Parser.parse("a = 1.1#{exp}1")
         assert id == "a"
-        assert values == [1, 1, exp]
+        assert values == [1, 1, exp, 1]
       end
+    end
+
+    test "parses bool: true" do
+      assert {:ok, [id, bool], _, _, _, _} = Parser.parse("a = true")
+      assert bool
+    end
+
+    test "parses bool: false" do
+      assert {:ok, [id, bool], _, _, _, _} = Parser.parse("a = false")
+      refute bool
+    end
+
+    test "parses null" do
+      assert {:ok, [id, null], _, _, _, _} = Parser.parse("a = null")
+      assert is_nil(null)
     end
   end
 

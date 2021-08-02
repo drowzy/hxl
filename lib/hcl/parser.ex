@@ -28,22 +28,33 @@ defmodule HCL.Parser do
   ## NumericLiteral
   int = integer(min: 1)
   expmark = ascii_string([?e, ?E, ?+, ?-], min: 1)
+
   numeric_lit =
     int
     |> optional(ignore(dot) |> concat(int))
-    |> optional(expmark)
+    |> optional(expmark |> concat(int))
 
   string_lit =
     ignore(string(~s(")))
     |> utf8_string([?a..?z, ?A..?Z], min: 1)
     |> ignore(string(~s(")))
 
+  null = string("null") |> replace(nil)
+
+  bool =
+    choice([
+      string("true") |> replace(true),
+      string("false") |> replace(false)
+    ])
+
+  literal_value = choice([numeric_lit, bool, null])
+
   attr =
     identifier
     |> optional(blankspace)
     |> ignore(eq)
     |> optional(blankspace)
-    |> concat(numeric_lit)
+    |> concat(literal_value)
 
   block =
     optional(blankspace)
