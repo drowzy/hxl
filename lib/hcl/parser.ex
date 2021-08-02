@@ -15,19 +15,25 @@ defmodule HCL.Parser do
   #     command = ["/usr/local/bin/awesome-app", "mgmt"]
   #   }
   # }
+  # ## Lexical
   whitespace = ascii_string([?\s, ?\n], min: 1)
   blankspace = ignore(ascii_string([?\s], min: 1))
   eq = string("=")
   dot = string(".")
+  comma = string(",")
+  colon = string(":")
   identifier = ascii_string([?a..?z, ?A..?Z], min: 1)
-
   open_brace = string("{")
   close_brace = string("}")
-  ## Expr https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms
-  ## Literal Value
-  ## NumericLiteral
+  open_brack = string("[")
+  close_brack = string("]")
+  assign = choice([eq, colon])
+
+  # ## Expr https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms
+  # ### Literal Value
+  # #### NumericLiteral
   int = integer(min: 1)
-  expmark = ascii_string([?e, ?E, ?+, ?-], min: 1)
+  expmark = ascii_char([?e, ?E, ?+, ?-])
 
   numeric_lit =
     int
@@ -48,13 +54,35 @@ defmodule HCL.Parser do
     ])
 
   literal_value = choice([numeric_lit, bool, null])
+  tuple_elem = literal_value |> ignore(optional(comma)) |> ignore(optional(whitespace))
+  tuple =
+    ignore(open_brack)
+    |> optional(blankspace)
+    |> repeat(tuple_elem)
+    |> ignore(close_brack)
+
+  # TODO should be able to be an expression
+  object_elem =
+    identifier
+    |> ignore(optional(whitespace))
+    |> ignore(assign)
+    |> optional(blankspace)
+    |> concat(literal_value)
+    |> ignore(optional(whitespace))
+  object =
+    ignore(open_brace)
+    |> optional(blankspace)
+    |> repeat(object_elem)
+    |> ignore(close_brace)
+  collection_value = choice([tuple, object])
+  expr_term = choice([literal_value, collection_value])
 
   attr =
     identifier
     |> optional(blankspace)
     |> ignore(eq)
     |> optional(blankspace)
-    |> concat(literal_value)
+    |> concat(expr_term)
 
   block =
     optional(blankspace)
