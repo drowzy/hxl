@@ -18,6 +18,7 @@ defmodule HCL.Parser do
   # ## Lexical
   whitespace = ascii_string([?\s, ?\n], min: 1)
   blankspace = ignore(ascii_string([?\s], min: 1))
+  newline = string("\n")
   eq = string("=")
   dot = string(".")
   comma = string(",")
@@ -55,6 +56,7 @@ defmodule HCL.Parser do
 
   literal_value = choice([numeric_lit, bool, null])
   tuple_elem = literal_value |> ignore(optional(comma)) |> ignore(optional(whitespace))
+
   tuple =
     ignore(open_brack)
     |> optional(blankspace)
@@ -76,8 +78,37 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> repeat(object_elem)
     |> ignore(close_brace)
+
   collection_value = choice([tuple, object])
-  expr_term = choice([literal_value, collection_value])
+
+  # ## Template Expr
+  # TODO include escape sequences https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#template-expressions
+  quoted_template = string_lit
+
+  heredoc_line = utf8_string([not: ?\n], min: 1) |> ignore(newline)
+
+  heredoc_template =
+    choice([ignore(string("<<")), ignore(string("<<-"))])
+    |> concat(identifier)
+    |> ignore(whitespace)
+    |> repeat(heredoc_line)
+    |> post_traverse(:validate_heredoc_matching_id)
+
+  defp validate_heredoc_matching_id(_rest, [close_id | content], ctx, _line, _offset) do
+    [open_id | _] = Enum.reverse(content)
+
+    if open_id == close_id do
+      {content, ctx}
+    else
+      {:error, "Expected identifier: #{open_id} to be closed. Got: #{close_id}"}
+    end
+  end
+
+  # |> repeat_while(ascii_string([], min: 1),
+  # |> post_traverse(:)
+
+  template_expr = choice([quoted_template, heredoc_template])
+  expr_term = choice([literal_value, collection_value, template_expr])
 
   attr =
     identifier
@@ -97,6 +128,7 @@ defmodule HCL.Parser do
     |> parsec(:body)
     |> ignore(close_brace)
 
+  defcombinatorp(:template_expr, template_expr, export_metadata: true)
   defcombinatorp(:attr, attr, export_metadata: true)
   defcombinatorp(:block, block, export_metadata: true)
 
@@ -104,6 +136,7 @@ defmodule HCL.Parser do
     export_metadata: true
   )
 
+  defparsec(:parse_template, parsec(:template_expr))
   defparsec(:parse_block, parsec(:block) |> eos())
   defparsec(:parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())
 end

@@ -78,18 +78,22 @@ defmodule HCL.ParserTest do
 
     test "parses objects of different types" do
       assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = { a: 1, b: true }")
-      values = values
-      |> Enum.chunk_every(2)
-      |> Map.new(fn [k, v] -> {k, v} end)
+
+      values =
+        values
+        |> Enum.chunk_every(2)
+        |> Map.new(fn [k, v] -> {k, v} end)
 
       assert values == %{"a" => 1, "b" => true}
     end
 
     test "parses object elems with `=` assignment" do
       assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = { a = 1, b = true }")
-      values = values
-      |> Enum.chunk_every(2)
-      |> Map.new(fn [k, v] -> {k, v} end)
+
+      values =
+        values
+        |> Enum.chunk_every(2)
+        |> Map.new(fn [k, v] -> {k, v} end)
 
       assert values == %{"a" => 1, "b" => true}
     end
