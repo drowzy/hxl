@@ -133,8 +133,6 @@ defmodule HCL.Parser do
     |> parsec(:body)
     |> ignore(close_brace)
 
-  defcombinatorp(:template_expr, template_expr, export_metadata: true)
-  defcombinatorp(:string_lit, string_lit, export_metadata: true)
   defcombinatorp(:attr, attr, export_metadata: true)
   defcombinatorp(:block, block, export_metadata: true)
 
@@ -142,7 +140,6 @@ defmodule HCL.Parser do
     export_metadata: true
   )
 
-  defparsec(:parse_template, parsec(:string_lit))
   defparsec(:parse_block, parsec(:block) |> eos())
   defparsec(:parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())
 end
