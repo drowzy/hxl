@@ -99,6 +99,33 @@ defmodule HCL.ParserTest do
     end
   end
 
+  describe "template parser" do
+    test "heredoc template" do
+      for op <- ["<<", "<<-"] do
+        hcl = """
+        a = #{op}EOT
+        hello
+        world
+        EOT
+        """
+
+        assert {:ok, ["a", "EOT", "hello", "world"], _, _, _, _} = Parser.parse(hcl)
+      end
+    end
+
+    test "quoted template" do
+      hcl = ~S(a = "hello world")
+
+      assert {:ok, ["a", "hello world"], _, _, _, _} = Parser.parse(hcl)
+    end
+
+    test "quoted template with escape chars" do
+      hcl = ~S(a = "hello world \"string\"")
+
+      assert {:ok, ["a", "hello world \"string\""], _, _, _, _} = Parser.parse(hcl)
+    end
+  end
+
   describe "block parser" do
     test "parses blocks with identifiers" do
       assert {:ok, ["service", "http", "a", 1], "", _, _, _} =

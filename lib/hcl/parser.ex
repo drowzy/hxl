@@ -41,10 +41,18 @@ defmodule HCL.Parser do
     |> optional(ignore(dot) |> concat(int))
     |> optional(expmark |> concat(int))
 
+  # https://github.com/dashbitco/nimble_parsec/blob/master/examples/simple_language.exs#L17
   string_lit =
-    ignore(string(~s(")))
-    |> utf8_string([?a..?z, ?A..?Z], min: 1)
-    |> ignore(string(~s(")))
+    ignore(ascii_char([?"]))
+    |> repeat(
+      lookahead_not(ascii_char([?"]))
+      |> choice([
+        ~S(\") |> string() |> replace(?"),
+        utf8_char([])
+      ])
+    )
+    |> ignore(ascii_char([?"]))
+    |> reduce({List, :to_string, []})
 
   null = string("null") |> replace(nil)
 
@@ -82,19 +90,19 @@ defmodule HCL.Parser do
   collection_value = choice([tuple, object])
 
   # ## Template Expr
-  # TODO include escape sequences https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#template-expressions
+  # TODO If a heredoc template is introduced with the <<- symbol, any literal string at the start of each line is analyzed to find the minimum number of leading spaces, and then that number of prefix spaces is removed from all line-leading literal strings. The final closing marker may also have an arbitrary number of spaces preceding it on its line.
   quoted_template = string_lit
 
   heredoc_line = utf8_string([not: ?\n], min: 1) |> ignore(newline)
 
   heredoc_template =
-    choice([ignore(string("<<")), ignore(string("<<-"))])
+    choice([ignore(string("<<-")), ignore(string("<<"))])
     |> concat(identifier)
     |> ignore(whitespace)
     |> repeat(heredoc_line)
-    |> post_traverse(:validate_heredoc_matching_id)
+    |> post_traverse(:validate_heredoc_matching_terminator)
 
-  defp validate_heredoc_matching_id(_rest, [close_id | content], ctx, _line, _offset) do
+  defp validate_heredoc_matching_terminator(_rest, [close_id | content], ctx, _line, _offset) do
     [open_id | _] = Enum.reverse(content)
 
     if open_id == close_id do
@@ -103,9 +111,6 @@ defmodule HCL.Parser do
       {:error, "Expected identifier: #{open_id} to be closed. Got: #{close_id}"}
     end
   end
-
-  # |> repeat_while(ascii_string([], min: 1),
-  # |> post_traverse(:)
 
   template_expr = choice([quoted_template, heredoc_template])
   expr_term = choice([literal_value, collection_value, template_expr])
@@ -129,6 +134,7 @@ defmodule HCL.Parser do
     |> ignore(close_brace)
 
   defcombinatorp(:template_expr, template_expr, export_metadata: true)
+  defcombinatorp(:string_lit, string_lit, export_metadata: true)
   defcombinatorp(:attr, attr, export_metadata: true)
   defcombinatorp(:block, block, export_metadata: true)
 
@@ -136,7 +142,7 @@ defmodule HCL.Parser do
     export_metadata: true
   )
 
-  defparsec(:parse_template, parsec(:template_expr))
+  defparsec(:parse_template, parsec(:string_lit))
   defparsec(:parse_block, parsec(:block) |> eos())
   defparsec(:parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())
 end
