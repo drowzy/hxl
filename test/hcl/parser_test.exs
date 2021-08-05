@@ -3,6 +3,44 @@ defmodule HCL.ParserTest do
   alias HCL.Parser
 
   describe "body parser" do
+    test "can parse complete config" do
+      hcl = """
+      io_mode = "async"
+
+      service "web_proxy" {
+        listen_addr = "127.0.0.1:8080"
+
+        process "main" {
+          command = ["/usr/local/bin/awesome-app", "server"]
+        }
+
+        process "mgmt" {
+          command = ["/usr/local/bin/awesome-app", "mgmt"]
+        }
+      }
+      """
+
+      {:ok,
+       [
+         "io_mode",
+         "async",
+         "service",
+         "web_proxy",
+         "listen_addr",
+         "127.0.0.1:8080",
+         "process",
+         "main",
+         "command",
+         "/usr/local/bin/awesome-app",
+         "server",
+         "process",
+         "mgmt",
+         "command",
+         "/usr/local/bin/awesome-app",
+         "mgmt"
+       ], _, _, _, _} = Parser.parse(hcl)
+    end
+
     test "supports multiple attrs" do
       hcl = """
       a = 1
@@ -72,8 +110,8 @@ defmodule HCL.ParserTest do
     end
 
     test "parses tuples of different types " do
-      assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = [1, true, null]")
-      assert values == [1, true, nil]
+      assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = [1, true, null, \"string\"]")
+      assert values == [1, true, nil, "string"]
     end
 
     test "parses objects of different types" do

@@ -23,7 +23,7 @@ defmodule HCL.Parser do
   dot = string(".")
   comma = string(",")
   colon = string(":")
-  identifier = ascii_string([?a..?z, ?A..?Z], min: 1)
+  identifier = ascii_string([?a..?z, ?A..?Z, ?-, ?_], min: 1)
   open_brace = string("{")
   close_brace = string("}")
   open_brack = string("[")
@@ -63,7 +63,7 @@ defmodule HCL.Parser do
     ])
 
   literal_value = choice([numeric_lit, bool, null])
-  tuple_elem = literal_value |> ignore(optional(comma)) |> ignore(optional(whitespace))
+  tuple_elem = parsec(:expr_term) |> ignore(optional(comma)) |> ignore(optional(whitespace))
 
   tuple =
     ignore(open_brack)
@@ -77,7 +77,7 @@ defmodule HCL.Parser do
     |> ignore(optional(whitespace))
     |> ignore(assign)
     |> optional(blankspace)
-    |> concat(literal_value)
+    |> parsec(:expr_term)
     |> ignore(optional(comma))
     |> ignore(optional(whitespace))
 
@@ -120,7 +120,7 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> ignore(eq)
     |> optional(blankspace)
-    |> concat(expr_term)
+    |> parsec(:expr_term)
 
   block =
     optional(blankspace)
@@ -133,6 +133,7 @@ defmodule HCL.Parser do
     |> parsec(:body)
     |> ignore(close_brace)
 
+  defcombinatorp(:expr_term, expr_term, export_metadata: true)
   defcombinatorp(:attr, attr, export_metadata: true)
   defcombinatorp(:block, block, export_metadata: true)
 
