@@ -30,6 +30,7 @@ defmodule HCL.Parser do
   close_brack = string("]")
   open_parens = string("(")
   close_parens = string(")")
+  fat_arrow = string("=>")
   assign = choice([eq, colon])
 
   # ## Expr https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms
@@ -65,7 +66,7 @@ defmodule HCL.Parser do
     ])
 
   literal_value = choice([numeric_lit, bool, null])
-  arg = parsec(:expr_term) |> ignore(optional(comma)) |> ignore(optional(whitespace))
+  arg = parsec(:expr) |> ignore(optional(comma)) |> ignore(optional(whitespace))
 
   tuple =
     ignore(open_brack)
@@ -79,7 +80,7 @@ defmodule HCL.Parser do
     |> ignore(optional(whitespace))
     |> ignore(assign)
     |> optional(blankspace)
-    |> parsec(:expr_term)
+    |> parsec(:expr)
     |> ignore(optional(comma))
     |> ignore(optional(whitespace))
 
@@ -118,27 +119,74 @@ defmodule HCL.Parser do
   variable_expr = identifier
   arguments = optional(repeat(arg))
 
+  ## Function call
   function_call =
     identifier
     |> ignore(open_parens)
     |> concat(arguments)
     |> ignore(close_parens)
 
+  ## for Expression
+  for_cond = string("if") |> ignore(whitespace) |> parsec(:expr)
+  for_identifier =
+    identifier
+    |> ignore(optional(comma))
+    |> ignore(optional(whitespace))
+
+  for_intro =
+    string("for")
+    |> ignore(whitespace)
+    |> repeat(lookahead_not(string("in")) |> concat(for_identifier))
+    |> ignore(optional(whitespace))
+    |> ignore(string("in"))
+    |> ignore(whitespace)
+    |> parsec(:expr)
+    |> ignore(whitespace)
+    |> ignore(colon)
+
+  for_tuple =
+    ignore(open_brack)
+    |> optional(blankspace)
+    |> concat(for_intro)
+    |> ignore(whitespace)
+    |> parsec(:expr)
+    |> optional(ignore(whitespace) |> concat(for_cond))
+    |> ignore(close_brack)
+
+  for_object =
+    ignore(open_brace)
+    |> optional(blankspace)
+    |> concat(for_intro)
+    |> ignore(whitespace)
+    |> parsec(:expr)
+    |> ignore(whitespace)
+    |> ignore(fat_arrow)
+    |> ignore(whitespace)
+    |> parsec(:expr)
+    |> optional(ignore(whitespace) |> concat(for_cond))
+    |> ignore(close_brace)
+
+  for_expr = choice([for_tuple, for_object])
+
   expr_term =
     choice([
       literal_value,
       collection_value,
+      for_expr,
       template_expr,
       function_call,
       variable_expr
     ])
+
+  # TODO
+  expr = expr_term
 
   attr =
     identifier
     |> optional(blankspace)
     |> ignore(eq)
     |> optional(blankspace)
-    |> parsec(:expr_term)
+    |> parsec(:expr)
 
   block =
     optional(blankspace)
@@ -151,7 +199,7 @@ defmodule HCL.Parser do
     |> parsec(:body)
     |> ignore(close_brace)
 
-  defcombinatorp(:expr_term, expr_term, export_metadata: true)
+  defcombinatorp(:expr, expr, export_metadata: true)
   defcombinatorp(:attr, attr, export_metadata: true)
   defcombinatorp(:block, block, export_metadata: true)
 
