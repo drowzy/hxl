@@ -28,15 +28,15 @@ end
 - [x] Body
 - [x] Attributes
 - [x] Blocks
-- [ ] Online blocks
+- [ ] One-line blocks
 - [ ] Expressions
   - [ ] [Expr term](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms)
     - [x] Literal Value
     - [x] Collection Value
     - [x] Template Expr
-    - [ ] Variable Expr
-    - [ ] Function Call
-    - [ ] For Expr
+    - [x] Variable Expr
+    - [x] Function Call
+    - [x] For Expr
     - [ ] ExprTerm Index
     - [ ] ExprTerm GetAttr
     - [ ] ExprTerm Splat
