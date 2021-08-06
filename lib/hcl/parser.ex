@@ -128,6 +128,7 @@ defmodule HCL.Parser do
 
   ## for Expression
   for_cond = string("if") |> ignore(whitespace) |> parsec(:expr)
+
   for_identifier =
     identifier
     |> ignore(optional(comma))
