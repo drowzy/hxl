@@ -135,6 +135,14 @@ defmodule HCL.ParserTest do
 
       assert values == %{"a" => 1, "b" => true}
     end
+
+    test "parses variable expressions" do
+      {:ok, ["a", "b"], _, _, _, _} = Parser.parse("a = b")
+    end
+
+    test "parses function calls without args" do
+      {:ok, ["a", "func", 1], _, _, _, _} = Parser.parse("a = func(1)")
+    end
   end
 
   describe "template parser" do

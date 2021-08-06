@@ -28,6 +28,8 @@ defmodule HCL.Parser do
   close_brace = string("}")
   open_brack = string("[")
   close_brack = string("]")
+  open_parens = string("(")
+  close_parens = string(")")
   assign = choice([eq, colon])
 
   # ## Expr https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms
@@ -63,12 +65,12 @@ defmodule HCL.Parser do
     ])
 
   literal_value = choice([numeric_lit, bool, null])
-  tuple_elem = parsec(:expr_term) |> ignore(optional(comma)) |> ignore(optional(whitespace))
+  arg = parsec(:expr_term) |> ignore(optional(comma)) |> ignore(optional(whitespace))
 
   tuple =
     ignore(open_brack)
     |> optional(blankspace)
-    |> repeat(tuple_elem)
+    |> repeat(arg)
     |> ignore(close_brack)
 
   # TODO should be able to be an expression
@@ -113,7 +115,23 @@ defmodule HCL.Parser do
   end
 
   template_expr = choice([quoted_template, heredoc_template])
-  expr_term = choice([literal_value, collection_value, template_expr])
+  variable_expr = identifier
+  arguments = optional(repeat(arg))
+
+  function_call =
+    identifier
+    |> ignore(open_parens)
+    |> concat(arguments)
+    |> ignore(close_parens)
+
+  expr_term =
+    choice([
+      literal_value,
+      collection_value,
+      template_expr,
+      function_call,
+      variable_expr
+    ])
 
   attr =
     identifier
