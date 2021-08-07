@@ -11,8 +11,7 @@ defmodule HCL.Parser do
   #     command = ["/usr/local/bin/awesome-app", "server"]
   #   }
 
-  #   process "mgmt" {
-  #     command = ["/usr/local/bin/awesome-app", "mgmt"]
+  #   process "mgmt" {#     command = ["/usr/local/bin/awesome-app", "mgmt"]
   #   }
   # }
   # ## Lexical
@@ -23,6 +22,7 @@ defmodule HCL.Parser do
   dot = string(".")
   comma = string(",")
   colon = string(":")
+  wildcard = string("*")
   identifier = ascii_string([?a..?z, ?A..?Z, ?-, ?_], min: 1)
   open_brace = string("{")
   close_brace = string("}")
@@ -169,15 +169,43 @@ defmodule HCL.Parser do
 
   for_expr = choice([for_tuple, for_object])
 
+  # Expr term operations
+  index =
+    ignore(open_brack)
+    |> optional(blankspace)
+    |> parsec(:expr)
+    |> optional(blankspace)
+    |> ignore(close_brack)
+
+  get_attr = repeat(ignore(dot) |> concat(identifier))
+
+  # Splat
+  attr_splat =
+    ignore(dot)
+    |> ignore(wildcard)
+    |> concat(get_attr)
+
+  full_splat =
+    ignore(open_brack)
+    |> optional(blankspace)
+    |> ignore(wildcard)
+    |> optional(blankspace)
+    |> repeat(choice([get_attr, index]))
+
+  splat = choice([attr_splat, full_splat])
+
+  expr_term_op = choice([index, splat, get_attr])
+
   expr_term =
     choice([
       literal_value,
+      variable_expr,
       collection_value,
       for_expr,
       template_expr,
-      function_call,
-      variable_expr
+      function_call
     ])
+    |> optional(expr_term_op)
 
   # TODO
   expr = expr_term
