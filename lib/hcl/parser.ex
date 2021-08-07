@@ -194,6 +194,7 @@ defmodule HCL.Parser do
 
   splat = choice([attr_splat, full_splat])
 
+  # Expr Term
   expr_term_op = choice([index, splat, get_attr])
 
   expr_term =
@@ -207,7 +208,52 @@ defmodule HCL.Parser do
     ])
     |> optional(expr_term_op)
 
-  # TODO
+  # Operations
+  and_ = string("&&")
+  or_ = string("||")
+  not_ = string("!")
+  sum = string("+")
+  diff = string("-")
+  product = string("*")
+  quotient = string("/")
+  remainder = string("%")
+  eq = string("==")
+  not_eq = not_ |> string("=")
+  lt = string("<")
+  gt = string(">")
+  lt_eq = string("<=")
+  gt_eq = string(">=")
+
+  compare_op = choice([eq, not_eq, lt, gt, lt_eq, gt_eq])
+  arithmetic_op = choice([sum, diff, product, quotient, remainder])
+  logic_op = choice([and_, or_, not_])
+
+  binary_operator = choice([compare_op, arithmetic_op, logic_op])
+
+  binary_op =
+    expr_term
+    |> optional(ignore(whitespace))
+    |> concat(binary_operator)
+    |> optional(ignore(whitespace))
+    |> concat(expr_term)
+
+  unary_op = choice([diff, not_]) |> concat(expr_term)
+  operation = choice([unary_op, binary_op])
+  defparsec(:op, operation)
+
+  # Conditional
+  conditional =
+    parsec(:expr)
+    |> concat(blankspace)
+    |> string("?")
+    |> concat(blankspace)
+    |> parsec(:expr)
+    |> concat(blankspace)
+    |> string(":")
+    |> concat(blankspace)
+    |> parsec(:expr)
+
+  # expr = choice([operation, expr_term, conditional])
   expr = expr_term
 
   attr =
