@@ -19,6 +19,20 @@ defmodule HCL.Parser do
   blankspace = ignore(ascii_string([?\s], min: 1))
   newline = string("\n")
   eq = string("=")
+  and_ = string("&&")
+  or_ = string("||")
+  not_ = string("!")
+  sum = string("+")
+  diff = string("-")
+  product = string("*")
+  quotient = string("/")
+  remainder = string("%")
+  eqeq = string("==")
+  not_eq = not_ |> string("=")
+  lt = string("<")
+  gt = string(">")
+  lt_eq = string("<=")
+  gt_eq = string(">=")
   dot = string(".")
   comma = string(",")
   colon = string(":")
@@ -200,31 +214,17 @@ defmodule HCL.Parser do
   expr_term =
     choice([
       literal_value,
-      variable_expr,
       collection_value,
       for_expr,
       template_expr,
-      function_call
+      function_call,
+      variable_expr
     ])
     |> optional(expr_term_op)
 
   # Operations
-  and_ = string("&&")
-  or_ = string("||")
-  not_ = string("!")
-  sum = string("+")
-  diff = string("-")
-  product = string("*")
-  quotient = string("/")
-  remainder = string("%")
-  eq = string("==")
-  not_eq = not_ |> string("=")
-  lt = string("<")
-  gt = string(">")
-  lt_eq = string("<=")
-  gt_eq = string(">=")
 
-  compare_op = choice([eq, not_eq, lt, gt, lt_eq, gt_eq])
+  compare_op = choice([eqeq, not_eq, lt, gt, lt_eq, gt_eq])
   arithmetic_op = choice([sum, diff, product, quotient, remainder])
   logic_op = choice([and_, or_, not_])
 
@@ -239,10 +239,9 @@ defmodule HCL.Parser do
 
   unary_op = choice([diff, not_]) |> concat(expr_term)
   operation = choice([unary_op, binary_op])
-  defparsec(:op, operation)
 
   # Conditional
-  conditional =
+  _conditional =
     parsec(:expr)
     |> concat(blankspace)
     |> string("?")
@@ -253,15 +252,14 @@ defmodule HCL.Parser do
     |> concat(blankspace)
     |> parsec(:expr)
 
-  # expr = choice([operation, expr_term, conditional])
-  expr = expr_term
+  expr = choice([operation, expr_term])
 
   attr =
     identifier
     |> optional(blankspace)
     |> ignore(eq)
     |> optional(blankspace)
-    |> parsec(:expr)
+    |> concat(expr)
 
   block =
     optional(blankspace)
@@ -275,13 +273,10 @@ defmodule HCL.Parser do
     |> ignore(close_brace)
 
   defcombinatorp(:expr, expr, export_metadata: true)
-  defcombinatorp(:attr, attr, export_metadata: true)
-  defcombinatorp(:block, block, export_metadata: true)
 
   defcombinatorp(:body, repeat(choice([attr, block]) |> ignore(optional(whitespace))),
     export_metadata: true
   )
 
-  defparsec(:parse_block, parsec(:block) |> eos())
   defparsec(:parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())
 end
