@@ -1,6 +1,7 @@
 defmodule HCL.ParserTest do
   use ExUnit.Case
   alias HCL.Parser
+  alias HCL.Ast.{LiteralValue, TemplateExprr}
 
   describe "body parser" do
     test "can parse complete config" do

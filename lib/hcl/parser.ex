@@ -1,5 +1,6 @@
 defmodule HCL.Parser do
   import NimbleParsec
+  alias HCL.Parser.{LiteralValue, TemplateExpr}
 
   # https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md
 
@@ -48,15 +49,10 @@ defmodule HCL.Parser do
   assign = choice([eq, colon])
 
   # ## Expr https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms
-  # ### Literal Value
-  # #### NumericLiteral
-  int = integer(min: 1)
-  expmark = ascii_string([?e, ?E, ?+, ?-], max: 1)
-
-  numeric_lit =
-    int
-    |> optional(ignore(dot) |> concat(int))
-    |> optional(expmark |> concat(int))
+  #############################################################################
+  ## Literal Value
+  ##
+  ## TODO
 
   # https://github.com/dashbitco/nimble_parsec/blob/master/examples/simple_language.exs#L17
   string_lit =
@@ -71,15 +67,6 @@ defmodule HCL.Parser do
     |> ignore(ascii_char([?"]))
     |> reduce({List, :to_string, []})
 
-  null = string("null") |> replace(nil)
-
-  bool =
-    choice([
-      string("true") |> replace(true),
-      string("false") |> replace(false)
-    ])
-
-  literal_value = choice([numeric_lit, bool, null])
   arg = parsec(:expr) |> ignore(optional(comma)) |> ignore(optional(whitespace))
 
   tuple =
@@ -213,10 +200,10 @@ defmodule HCL.Parser do
 
   expr_term =
     choice([
-      literal_value,
+      LiteralValue.literal_value(),
       collection_value,
       for_expr,
-      template_expr,
+      TemplateExpr.template_expr(),
       function_call,
       variable_expr
     ])
