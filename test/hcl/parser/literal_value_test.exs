@@ -19,7 +19,7 @@ defmodule HCL.Parser.LiteralValueTest do
   test "parses exponetials" do
     for exp <- ["e", "E", "+", "-"] do
       assert {:ok, values, _, _, _, _} = P.parse_value("1#{exp}1")
-      assert values == [1, exp, 1]
+      assert values == [%Literal{value: {:exp, [1, exp, 1]}}]
     end
   end
 

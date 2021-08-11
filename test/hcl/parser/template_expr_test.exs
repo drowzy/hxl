@@ -17,7 +17,8 @@ defmodule HCL.Parser.TemplateExprTest do
       EOT
       """
 
-      assert {:ok, [%TemplateExpr{delimiter: "EOT", lines: ["hello", "world"]}], _, _, _, _} = P.parse_template(hcl)
+      assert {:ok, [%TemplateExpr{delimiter: "EOT", lines: ["hello", "world"]}], _, _, _, _} =
+               P.parse_template(hcl)
     end
   end
 
@@ -30,6 +31,7 @@ defmodule HCL.Parser.TemplateExprTest do
   test "quoted template with escape chars" do
     hcl = ~S("hello world \"string\"")
 
-    assert {:ok, [%TemplateExpr{lines: ["hello world \"string\""]}], _, _, _, _} = P.parse_template(hcl)
+    assert {:ok, [%TemplateExpr{lines: ["hello world \"string\""]}], _, _, _, _} =
+             P.parse_template(hcl)
   end
 end
