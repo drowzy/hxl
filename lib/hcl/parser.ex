@@ -1,6 +1,6 @@
 defmodule HCL.Parser do
   import NimbleParsec
-  alias HCL.Ast.{Literal, TemplateExpr}
+  alias HCL.Ast.{Literal, TemplateExpr, Tuple, Object}
 
   # https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md
 
@@ -122,6 +122,7 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> repeat(arg)
     |> ignore(close_brack)
+    |> post_traverse({Tuple, :from_tokens, []})
 
   # TODO should be able to be an expression
   object_elem =
@@ -138,6 +139,7 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> repeat(object_elem)
     |> ignore(close_brace)
+    |> post_traverse({Object, :from_tokens, []})
 
   collection_value = choice([tuple, object])
 
@@ -313,6 +315,7 @@ defmodule HCL.Parser do
 
   if Mix.env() == :test do
     defparsec(:parse_literal, literal_value)
+    defparsec(:parse_collection, collection_value)
     defparsec(:parse_template, template_expr)
   end
 
