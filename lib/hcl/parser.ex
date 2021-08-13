@@ -1,6 +1,13 @@
 defmodule HCL.Parser do
   import NimbleParsec
-  alias HCL.Ast.{Literal, TemplateExpr, Tuple, Object}
+
+  alias HCL.Ast.{
+    Literal,
+    TemplateExpr,
+    Tuple,
+    Object,
+    FunctionCall
+  }
 
   # https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md
 
@@ -174,14 +181,19 @@ defmodule HCL.Parser do
   variable_expr = identifier
   arguments = optional(repeat(arg))
 
-  ## Function call
+  ###########################
+  # ## Function call
+  #
+  #
   function_call =
     identifier
     |> ignore(open_parens)
     |> concat(arguments)
     |> ignore(close_parens)
+    |> post_traverse({FunctionCall, :from_tokens, []})
 
-  ## for Expression
+  ##########################
+  # ## for Expression
   for_cond = string("if") |> ignore(whitespace) |> parsec(:expr)
 
   for_identifier =
@@ -317,6 +329,7 @@ defmodule HCL.Parser do
     defparsec(:parse_literal, literal_value)
     defparsec(:parse_collection, collection_value)
     defparsec(:parse_template, template_expr)
+    defparsec(:parse_function, function_call)
   end
 
   defcombinatorp(:expr, expr, export_metadata: true)

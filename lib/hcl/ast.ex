@@ -53,3 +53,29 @@ defmodule HCL.Ast.Object do
     {[%__MODULE__{kvs: kvs}], ctx}
   end
 end
+
+defmodule HCL.Ast.FunctionCall do
+  @type t :: %__MODULE__{
+          args: list(),
+          arity: non_neg_integer(),
+          name: String.t()
+        }
+
+  defstruct [:args, :arity, :name]
+
+  def from_tokens(_rest, [name], ctx, _line, _offset) do
+    {[%__MODULE__{name: name, arity: 0, args: []}], ctx}
+  end
+
+  def from_tokens(_rest, args, ctx, _line, _offset) do
+    [name | args] = Enum.reverse(args)
+
+    call = %__MODULE__{
+      name: name,
+      arity: length(args),
+      args: args
+    }
+
+    {[call], ctx}
+  end
+end

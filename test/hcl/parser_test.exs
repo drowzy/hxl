@@ -1,7 +1,7 @@
 defmodule HCL.ParserTest do
   use ExUnit.Case
   alias HCL.Parser
-  alias HCL.Ast.{Tuple, Object, Literal, TemplateExpr}
+  alias HCL.Ast.{Tuple, Object, Literal, TemplateExpr, FunctionCall}
 
   describe "body parser" do
     @tag :skip
@@ -103,36 +103,21 @@ defmodule HCL.ParserTest do
       assert {:ok, [_ | %Object{}], _, _, _, _} = Parser.parse("a = { a: 1, b: true }")
     end
 
-    @tag :skip
-    test "parses object elems with `=` assignment" do
-      assert {:ok, [_ | values], _, _, _, _} = Parser.parse("a = { a = 1, b = true }")
-
-      values =
-        values
-        |> Enum.chunk_every(2)
-        |> Map.new(fn [k, v] -> {k, v} end)
-
-      assert values == %{
-               "a" => %HCL.Ast.Literal{value: {:int, 1}},
-               "b" => %HCL.Ast.Literal{value: {:bool, true}}
-             }
-    end
-
     test "parses variable expressions" do
-      {:ok, ["a", "b"], _, _, _, _} = Parser.parse("a = b")
+      assert {:ok, ["a", "b"], _, _, _, _} = Parser.parse("a = b")
     end
 
-    test "parses function calls without args" do
-      {:ok, ["a", "func", %Literal{value: {:int, 1}}], _, _, _, _} = Parser.parse("a = func(1)")
+    test "parses function calls" do
+      assert {:ok, ["a", %FunctionCall{name: "func"}], _, _, _, _} = Parser.parse("a = func(1)")
     end
 
     test "parses for expr for tuples" do
-      {:ok, ["a", "for", "a", "b", "upper", "a"], _, _, _, _} =
+      {:ok, ["a", "for", "a", "b", %FunctionCall{name: "upper"}], _, _, _, _} =
         HCL.Parser.parse("a = [for a in b : upper(a)]")
     end
 
     test "parses for expr for tuples with conditional" do
-      {:ok, ["a", "for", "a", "b", "upper", "a", "if", "a"], _, _, _, _} =
+      {:ok, ["a", "for", "a", "b", %FunctionCall{name: "upper"}, "if", "a"], _, _, _, _} =
         HCL.Parser.parse("a = [for a in b : upper(a) if a]")
     end
 
