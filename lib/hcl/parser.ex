@@ -1,6 +1,6 @@
 defmodule HCL.Parser do
   import NimbleParsec
-  alias HCL.Parser.{LiteralValue, TemplateExpr}
+  alias HCL.Ast.{Literal, TemplateExpr}
 
   # https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md
 
@@ -54,6 +54,15 @@ defmodule HCL.Parser do
   ##
   ## TODO
 
+  expmark = ascii_string([?e, ?E, ?+, ?-], max: 1)
+  int = integer(min: 1)
+  # NumericLit = decimal+ ("." decimal+)? (expmark decimal+)?;
+  numeric_lit =
+    int
+    |> optional(ignore(dot) |> concat(int))
+    |> optional(expmark |> concat(int))
+    |> post_traverse(:tag_and_emit_numeric_lit)
+
   # https://github.com/dashbitco/nimble_parsec/blob/master/examples/simple_language.exs#L17
   string_lit =
     ignore(ascii_char([?"]))
@@ -66,6 +75,45 @@ defmodule HCL.Parser do
     )
     |> ignore(ascii_char([?"]))
     |> reduce({List, :to_string, []})
+
+  null = string("null") |> replace(nil) |> unwrap_and_tag(:null)
+
+  bool =
+    choice([
+      string("true") |> replace(true),
+      string("false") |> replace(false)
+    ])
+    |> unwrap_and_tag(:bool)
+
+  literal_value =
+    choice([
+      numeric_lit,
+      bool,
+      null
+    ])
+    |> post_traverse({Literal, :from_tokens, []})
+
+  defp tag_and_emit_numeric_lit(_rest, [int_value], ctx, _line, _offset) do
+    {[{:int, int_value}], ctx}
+  end
+
+  defp tag_and_emit_numeric_lit(_rest, [frac, base], ctx, _line, _offset) do
+    {value, _} = Float.parse("#{base}.#{frac}")
+    {[{:decimal, value}], ctx}
+  end
+
+  defp tag_and_emit_numeric_lit(_rest, [_pow, exp, _base] = args, ctx, _line, _offset)
+       when is_binary(exp) do
+    {[{:exp, args}], ctx}
+  end
+
+  defp tag_and_emit_numeric_lit(_rest, [_pow, exp, _frac, _base] = args, ctx, _line, _offset)
+       when is_binary(exp) do
+    {[{:float_exp, args}], ctx}
+  end
+
+  #########################################
+  # ## CollectionValue
 
   arg = parsec(:expr) |> ignore(optional(comma)) |> ignore(optional(whitespace))
 
@@ -93,9 +141,10 @@ defmodule HCL.Parser do
 
   collection_value = choice([tuple, object])
 
+  #########################################
   # ## Template Expr
   # TODO If a heredoc template is introduced with the <<- symbol, any literal string at the start of each line is analyzed to find the minimum number of leading spaces, and then that number of prefix spaces is removed from all line-leading literal strings. The final closing marker may also have an arbitrary number of spaces preceding it on its line.
-  quoted_template = string_lit
+  quoted_template = string_lit |> tag(:qouted_template)
 
   heredoc_line = utf8_string([not: ?\n], min: 1) |> ignore(newline)
 
@@ -105,6 +154,7 @@ defmodule HCL.Parser do
     |> ignore(whitespace)
     |> repeat(heredoc_line)
     |> post_traverse(:validate_heredoc_matching_terminator)
+    |> tag(:heredoc)
 
   defp validate_heredoc_matching_terminator(_rest, [close_id | content], ctx, _line, _offset) do
     [open_id | _] = Enum.reverse(content)
@@ -116,7 +166,9 @@ defmodule HCL.Parser do
     end
   end
 
-  template_expr = choice([quoted_template, heredoc_template])
+  template_expr =
+    choice([quoted_template, heredoc_template]) |> post_traverse({TemplateExpr, :from_tokens, []})
+
   variable_expr = identifier
   arguments = optional(repeat(arg))
 
@@ -200,10 +252,10 @@ defmodule HCL.Parser do
 
   expr_term =
     choice([
-      LiteralValue.literal_value(),
+      literal_value,
       collection_value,
       for_expr,
-      TemplateExpr.template_expr(),
+      template_expr,
       function_call,
       variable_expr
     ])
@@ -258,6 +310,11 @@ defmodule HCL.Parser do
     |> repeat(ignore(whitespace))
     |> parsec(:body)
     |> ignore(close_brace)
+
+  if Mix.env() == :test do
+    defparsec(:parse_literal, literal_value)
+    defparsec(:parse_template, template_expr)
+  end
 
   defcombinatorp(:expr, expr, export_metadata: true)
 
