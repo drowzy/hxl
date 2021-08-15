@@ -10,19 +10,8 @@ defmodule HCL.Parser do
     ForExpr
   }
 
-  # https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md
-
-  # io_mode = "async"
-
-  # service "http" "web_proxy" {
-  #   listen_addr = "127.0.0.1:8080"
-  #   process "main" {
-  #     command = ["/usr/local/bin/awesome-app", "server"]
-  #   }
-
-  #   process "mgmt" {#     command = ["/usr/local/bin/awesome-app", "mgmt"]
-  #   }
-  # }
+  ########################################
+  #
   # ## Lexical
   whitespace = ascii_string([?\s, ?\n], min: 1)
   blankspace = ignore(ascii_string([?\s], min: 1))
@@ -56,12 +45,12 @@ defmodule HCL.Parser do
   fat_arrow = string("=>")
   assign = choice([eq, colon])
 
-  # ## Expr https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms
-  #############################################################################
-  ## Literal Value
-  ##
-  ## TODO
-
+  ########################################
+  #
+  # ## Expr
+  #
+  # ### Literal Value
+  #
   expmark = ascii_string([?e, ?E, ?+, ?-], max: 1)
   int = integer(min: 1)
   # NumericLit = decimal+ ("." decimal+)? (expmark decimal+)?;
@@ -120,8 +109,7 @@ defmodule HCL.Parser do
     {[{:float_exp, args}], ctx}
   end
 
-  #########################################
-  # ## CollectionValue
+  # ### CollectionValue
 
   arg = parsec(:expr) |> ignore(optional(comma)) |> ignore(optional(whitespace))
 
@@ -151,8 +139,7 @@ defmodule HCL.Parser do
 
   collection_value = choice([tuple, object])
 
-  #########################################
-  # ## Template Expr
+  # ### Template Expr
   # TODO If a heredoc template is introduced with the <<- symbol, any literal string at the start of each line is analyzed to find the minimum number of leading spaces, and then that number of prefix spaces is removed from all line-leading literal strings. The final closing marker may also have an arbitrary number of spaces preceding it on its line.
   quoted_template = string_lit |> tag(:qouted_template)
 
@@ -182,10 +169,8 @@ defmodule HCL.Parser do
   variable_expr = identifier
   arguments = optional(repeat(arg))
 
-  ###########################
-  # ## Function call
-  #
-  #
+  # ### Function call
+
   function_call =
     identifier
     |> ignore(open_parens)
@@ -193,9 +178,8 @@ defmodule HCL.Parser do
     |> ignore(close_parens)
     |> post_traverse({FunctionCall, :from_tokens, []})
 
-  ##########################
-  # ## for Expression
-  #
+  # ### for Expression
+
   for_cond = string("if") |> ignore(whitespace) |> parsec(:expr)
 
   for_identifier =
@@ -241,7 +225,8 @@ defmodule HCL.Parser do
 
   for_expr = choice([for_tuple, for_object]) |> post_traverse({ForExpr, :from_tokens, []})
 
-  # Expr term operations
+  # ### Expr term operations
+
   index =
     ignore(open_brack)
     |> optional(blankspace)
@@ -251,7 +236,8 @@ defmodule HCL.Parser do
 
   get_attr = repeat(ignore(dot) |> concat(identifier))
 
-  # Splat
+  # ### Splat
+
   attr_splat =
     ignore(dot)
     |> ignore(wildcard)
@@ -266,7 +252,8 @@ defmodule HCL.Parser do
 
   splat = choice([attr_splat, full_splat])
 
-  # Expr Term
+  # ### Expr Term
+
   expr_term_op = choice([index, splat, get_attr])
 
   expr_term =
@@ -280,7 +267,7 @@ defmodule HCL.Parser do
     ])
     |> optional(expr_term_op)
 
-  # Operations
+  # ### Operations
 
   compare_op = choice([eqeq, not_eq, lt, gt, lt_eq, gt_eq])
   arithmetic_op = choice([sum, diff, product, quotient, remainder])
@@ -312,6 +299,8 @@ defmodule HCL.Parser do
 
   expr = choice([operation, expr_term])
 
+  ##########################
+  # ## Attribute
   attr =
     identifier
     |> optional(blankspace)
@@ -319,6 +308,8 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> concat(expr)
 
+  ##########################
+  # ## Block
   block =
     optional(blankspace)
     |> concat(identifier)
