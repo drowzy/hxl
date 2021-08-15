@@ -1,6 +1,6 @@
 # HCL
 
-**TODO: Add description**
+An Elixir implementation of [HCL](https://github.com/hashicorp/hcl)
 
 ## Installation
 
@@ -37,15 +37,9 @@ end
     - [x] Variable Expr
     - [x] Function Call
     - [x] For Expr
-    - [ ] ExprTerm Index
-    - [ ] ExprTerm GetAttr
-    - [ ] ExprTerm Splat
-    - [ ] "(" Expression ")"
+    - [x] ExprTerm Index
+    - [x] ExprTerm GetAttr
+    - [x] ExprTerm Splat
+    - [x] "(" Expression ")"
   - [ ] Operation
   - [ ] Conditional
-
-
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/hcl](https://hexdocs.pm/hcl).
