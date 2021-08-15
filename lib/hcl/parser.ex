@@ -6,7 +6,8 @@ defmodule HCL.Parser do
     TemplateExpr,
     Tuple,
     Object,
-    FunctionCall
+    FunctionCall,
+    ForExpr
   }
 
   # https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md
@@ -194,22 +195,24 @@ defmodule HCL.Parser do
 
   ##########################
   # ## for Expression
+  #
   for_cond = string("if") |> ignore(whitespace) |> parsec(:expr)
 
   for_identifier =
     identifier
     |> ignore(optional(comma))
     |> ignore(optional(whitespace))
+    |> unwrap_and_tag(:identifier)
 
   for_intro =
-    string("for")
+    ignore(string("for"))
     |> ignore(whitespace)
     |> repeat(lookahead_not(string("in")) |> concat(for_identifier))
     |> ignore(optional(whitespace))
     |> ignore(string("in"))
     |> ignore(whitespace)
     |> parsec(:expr)
-    |> ignore(whitespace)
+    |> optional(ignore(whitespace))
     |> ignore(colon)
 
   for_tuple =
@@ -220,6 +223,7 @@ defmodule HCL.Parser do
     |> parsec(:expr)
     |> optional(ignore(whitespace) |> concat(for_cond))
     |> ignore(close_brack)
+    |> tag(:tuple)
 
   for_object =
     ignore(open_brace)
@@ -233,8 +237,9 @@ defmodule HCL.Parser do
     |> parsec(:expr)
     |> optional(ignore(whitespace) |> concat(for_cond))
     |> ignore(close_brace)
+    |> tag(:object)
 
-  for_expr = choice([for_tuple, for_object])
+  for_expr = choice([for_tuple, for_object]) |> post_traverse({ForExpr, :from_tokens, []})
 
   # Expr term operations
   index =
@@ -330,6 +335,7 @@ defmodule HCL.Parser do
     defparsec(:parse_collection, collection_value)
     defparsec(:parse_template, template_expr)
     defparsec(:parse_function, function_call)
+    defparsec(:parse_for, for_expr)
   end
 
   defcombinatorp(:expr, expr, export_metadata: true)

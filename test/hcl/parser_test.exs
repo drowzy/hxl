@@ -110,26 +110,6 @@ defmodule HCL.ParserTest do
     test "parses function calls" do
       assert {:ok, ["a", %FunctionCall{name: "func"}], _, _, _, _} = Parser.parse("a = func(1)")
     end
-
-    test "parses for expr for tuples" do
-      {:ok, ["a", "for", "a", "b", %FunctionCall{name: "upper"}], _, _, _, _} =
-        HCL.Parser.parse("a = [for a in b : upper(a)]")
-    end
-
-    test "parses for expr for tuples with conditional" do
-      {:ok, ["a", "for", "a", "b", %FunctionCall{name: "upper"}, "if", "a"], _, _, _, _} =
-        HCL.Parser.parse("a = [for a in b : upper(a) if a]")
-    end
-
-    test "parses for expr for objects" do
-      {:ok, ["a", "for", "a", "v", "b", "v", "a"], _, _, _, _} =
-        HCL.Parser.parse("a = {for a, v in b : v => a}")
-    end
-
-    test "parses for expr for objects with conditional" do
-      {:ok, ["a", "for", "a", "v", "b", "v", "a", "if", "a"], _, _, _, _} =
-        HCL.Parser.parse("a = {for a, v in b : v => a if a}")
-    end
   end
 
   describe "template parser" do

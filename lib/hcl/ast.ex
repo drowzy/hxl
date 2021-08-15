@@ -79,3 +79,55 @@ defmodule HCL.Ast.FunctionCall do
     {[call], ctx}
   end
 end
+
+# TODO might need two different expressions
+defmodule HCL.Ast.ForExpr do
+  @type t :: %__MODULE__{
+          keys: list(),
+          enumerable: term(),
+          enumerable_type: :tuple | :object,
+          body: term(),
+          conditional: term()
+        }
+
+  defstruct [:keys, :enumerable, :enumerable_type, :body, :conditional]
+
+  def from_tokens(_rest, [{for_type, args}], ctx, _line, _offset)
+      when for_type in [:tuple, :object] do
+    {ids, rest} = Enum.split_while(args, &identifier?/1)
+    {enumerable, body, conditional} = post_process_for_body(for_type, rest)
+
+    for_expr = %__MODULE__{
+      keys: post_process_for_ids(ids),
+      enumerable: enumerable,
+      enumerable_type: for_type,
+      body: body,
+      conditional: conditional
+    }
+
+    {[for_expr], ctx}
+  end
+
+  defp post_process_for_ids(ids) do
+    for {:identifier, id} <- ids, do: id
+  end
+
+  defp post_process_for_body(:tuple, [enum, body]) do
+    {enum, body, nil}
+  end
+
+  defp post_process_for_body(:tuple, [enum, body | conditional]) do
+    {enum, body, conditional}
+  end
+
+  defp post_process_for_body(:object, [enum, key_expr, value_expr]) do
+    {enum, {key_expr, value_expr}, nil}
+  end
+
+  defp post_process_for_body(:object, [enum, key_expr, value_expr | conditional]) do
+    {enum, {key_expr, value_expr}, conditional}
+  end
+
+  defp identifier?({:identifier, _}), do: true
+  defp identifier?(_), do: false
+end
