@@ -3,11 +3,17 @@ defmodule HCL.Parser do
 
   alias HCL.Ast.{
     Literal,
+    Identifier,
     TemplateExpr,
     Tuple,
     Object,
     FunctionCall,
-    ForExpr
+    ForExpr,
+    Binary,
+    Unary,
+    Attr,
+    Block,
+    Body
   }
 
   ########################################
@@ -26,7 +32,7 @@ defmodule HCL.Parser do
   quotient = string("/")
   remainder = string("%")
   eqeq = string("==")
-  not_eq = not_ |> string("=")
+  not_eq = string("!=")
   lt = string("<")
   gt = string(">")
   lt_eq = string("<=")
@@ -88,7 +94,8 @@ defmodule HCL.Parser do
       bool,
       null
     ])
-    |> post_traverse({Literal, :from_tokens, []})
+    |> unwrap_and_tag(:literal)
+    |> post_traverse(:ast_node_from_tokens)
 
   defp tag_and_emit_numeric_lit(_rest, [int_value], ctx, _line, _offset) do
     {[{:int, int_value}], ctx}
@@ -118,7 +125,7 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> repeat(arg)
     |> ignore(close_brack)
-    |> post_traverse({Tuple, :from_tokens, []})
+    |> tag(:tuple)
 
   # TODO should be able to be an expression
   object_elem =
@@ -135,9 +142,9 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> repeat(object_elem)
     |> ignore(close_brace)
-    |> post_traverse({Object, :from_tokens, []})
+    |> tag(:object)
 
-  collection_value = choice([tuple, object])
+  collection_value = choice([tuple, object]) |> post_traverse(:ast_node_from_tokens)
 
   # ### Template Expr
   # TODO If a heredoc template is introduced with the <<- symbol, any literal string at the start of each line is analyzed to find the minimum number of leading spaces, and then that number of prefix spaces is removed from all line-leading literal strings. The final closing marker may also have an arbitrary number of spaces preceding it on its line.
@@ -153,6 +160,9 @@ defmodule HCL.Parser do
     |> post_traverse(:validate_heredoc_matching_terminator)
     |> tag(:heredoc)
 
+  template_expr =
+    choice([quoted_template, heredoc_template]) |> post_traverse(:ast_node_from_tokens)
+
   defp validate_heredoc_matching_terminator(_rest, [close_id | content], ctx, _line, _offset) do
     [open_id | _] = Enum.reverse(content)
 
@@ -163,10 +173,7 @@ defmodule HCL.Parser do
     end
   end
 
-  template_expr =
-    choice([quoted_template, heredoc_template]) |> post_traverse({TemplateExpr, :from_tokens, []})
-
-  variable_expr = identifier
+  variable_expr = identifier |> tag(:identifier) |> post_traverse(:ast_node_from_tokens)
   arguments = optional(repeat(arg))
 
   # ### Function call
@@ -176,7 +183,8 @@ defmodule HCL.Parser do
     |> ignore(open_parens)
     |> concat(arguments)
     |> ignore(close_parens)
-    |> post_traverse({FunctionCall, :from_tokens, []})
+    |> tag(:function_call)
+    |> post_traverse(:ast_node_from_tokens)
 
   # ### for Expression
 
@@ -207,7 +215,7 @@ defmodule HCL.Parser do
     |> parsec(:expr)
     |> optional(ignore(whitespace) |> concat(for_cond))
     |> ignore(close_brack)
-    |> tag(:tuple)
+    |> tag(:for_tuple)
 
   for_object =
     ignore(open_brace)
@@ -221,9 +229,9 @@ defmodule HCL.Parser do
     |> parsec(:expr)
     |> optional(ignore(whitespace) |> concat(for_cond))
     |> ignore(close_brace)
-    |> tag(:object)
+    |> tag(:for_object)
 
-  for_expr = choice([for_tuple, for_object]) |> post_traverse({ForExpr, :from_tokens, []})
+  for_expr = choice([for_tuple, for_object]) |> post_traverse(:ast_node_from_tokens)
 
   # ### Expr term operations
 
@@ -269,9 +277,9 @@ defmodule HCL.Parser do
 
   # ### Operations
 
-  compare_op = choice([eqeq, not_eq, lt, gt, lt_eq, gt_eq])
+  compare_op = choice([eqeq, not_eq, lt_eq, gt_eq, lt, gt])
   arithmetic_op = choice([sum, diff, product, quotient, remainder])
-  logic_op = choice([and_, or_, not_])
+  logic_op = choice([and_, or_])
 
   binary_operator = choice([compare_op, arithmetic_op, logic_op])
 
@@ -281,12 +289,13 @@ defmodule HCL.Parser do
     |> concat(binary_operator)
     |> optional(ignore(whitespace))
     |> concat(expr_term)
+    |> tag(:binary)
 
-  unary_op = choice([diff, not_]) |> concat(expr_term)
-  operation = choice([unary_op, binary_op])
+  unary_op = choice([diff, not_]) |> concat(expr_term) |> tag(:unary)
+  operation = choice([unary_op, binary_op]) |> post_traverse(:ast_node_from_tokens)
 
   # Conditional
-  _conditional =
+  conditional =
     parsec(:expr)
     |> concat(blankspace)
     |> string("?")
@@ -307,6 +316,8 @@ defmodule HCL.Parser do
     |> ignore(eq)
     |> optional(blankspace)
     |> concat(expr)
+    |> tag(:attr)
+    |> post_traverse(:ast_node_from_tokens)
 
   ##########################
   # ## Block
@@ -320,6 +331,15 @@ defmodule HCL.Parser do
     |> repeat(ignore(whitespace))
     |> parsec(:body)
     |> ignore(close_brace)
+    |> tag(:block)
+    |> post_traverse(:ast_node_from_tokens)
+
+  ##########################
+  # ## body
+  body =
+    repeat(choice([attr, block]) |> ignore(optional(whitespace)))
+    |> tag(:body)
+    |> post_traverse(:ast_node_from_tokens)
 
   if Mix.env() == :test do
     defparsec(:parse_literal, literal_value)
@@ -327,13 +347,142 @@ defmodule HCL.Parser do
     defparsec(:parse_template, template_expr)
     defparsec(:parse_function, function_call)
     defparsec(:parse_for, for_expr)
+    defparsec(:parse_op, operation)
+    defparsec(:parse_attr, attr)
   end
 
-  defcombinatorp(:expr, expr, export_metadata: true)
+  defcombinatorp(:expr, expr)
+  defcombinatorp(:body, body)
 
-  defcombinatorp(:body, repeat(choice([attr, block]) |> ignore(optional(whitespace))),
-    export_metadata: true
-  )
+  @spec parse(binary()) :: {:ok, HCL.Ast.Body.t()} | {:error, binary(), {integer(), integer()}}
+  def parse(input) do
+    case do_parse(input) do
+      {:ok, [ast], "", _, _, _} ->
+        {:ok, ast}
 
-  defparsec(:parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())
+      {:ok, _, rest, {line, line_offset}, byte_offset} ->
+        {:error, rest, {line, line_offset}, byte_offset}
+
+      err ->
+        err
+    end
+  end
+
+  @spec do_parse(binary()) ::
+          {:ok, [term()], binary(), map(), {pos_integer(), pos_integer()}, pos_integer()}
+  defparsec(:do_parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())
+
+  defp ast_node_from_tokens(_rest, [literal: literal], ctx, _line, _offset) do
+    {[%Literal{value: literal}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [heredoc: [delimiter | lines]], ctx, _line, _offset) do
+    {[%TemplateExpr{delimiter: delimiter, lines: lines}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [qouted_template: lines], ctx, _line, _offset) do
+    {[%TemplateExpr{lines: lines}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [tuple: values], ctx, _line, _offset) do
+    {[%Tuple{values: values}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [object: kvs], ctx, _line, _offset) do
+    kvs =
+      kvs
+      |> Enum.chunk_every(2)
+      |> Map.new(fn [k, v] -> {k, v} end)
+
+    {[%Object{kvs: kvs}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [function_call: [name]], ctx, _line, _offset) do
+    {[%FunctionCall{name: name, arity: 0, args: []}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [function_call: [name | args]], ctx, _line, _offset) do
+    call = %FunctionCall{
+      name: name,
+      arity: length(args),
+      args: args
+    }
+
+    {[call], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [identifier: [name]], ctx, _line, _offset) do
+    {[%Identifier{name: name}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [{for_type, args}], ctx, _line, _offset)
+       when for_type in [:for_tuple, :for_object] do
+    {ids, rest} = Enum.split_while(args, &identifier?/1)
+    {enumerable, body, conditional} = post_process_for_body(for_type, rest)
+
+    for_expr = %ForExpr{
+      keys: post_process_for_ids(ids),
+      enumerable: enumerable,
+      enumerable_type: for_type,
+      body: body,
+      conditional: conditional
+    }
+
+    {[for_expr], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [binary: [left, op, right]], ctx, _line, _offset) do
+    {[%Binary{operator: String.to_existing_atom(op), left: left, right: right}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [unary: [op, expr]], ctx, _line, _offset) do
+    {[%Unary{operator: String.to_existing_atom(op), expr: expr}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [attr: [name, expr]], ctx, _line, _offset) do
+    {[%Attr{name: name, expr: expr}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [block: [type | args]], ctx, _line, _offset) do
+    {labels, [body]} =
+      Enum.split_while(args, fn
+        %Body{} -> false
+        _ -> true
+      end)
+
+    block = %Block{
+      type: type,
+      labels: labels,
+      body: body
+    }
+
+    {[block], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [body: stmts], ctx, _line, _offset) do
+    {[%Body{statements: stmts}], ctx}
+  end
+
+  defp post_process_for_ids(ids) do
+    for {:identifier, id} <- ids, do: id
+  end
+
+  defp post_process_for_body(:for_tuple, [enum, body]) do
+    {enum, body, nil}
+  end
+
+  defp post_process_for_body(:for_tuple, [enum, body | conditional]) do
+    {enum, body, conditional}
+  end
+
+  defp post_process_for_body(:for_object, [enum, key_expr, value_expr]) do
+    {enum, {key_expr, value_expr}, nil}
+  end
+
+  defp post_process_for_body(:for_object, [enum, key_expr, value_expr | conditional]) do
+    {enum, {key_expr, value_expr}, conditional}
+  end
+
+  defp identifier?({:identifier, _}), do: true
+  defp identifier?(_), do: false
 end

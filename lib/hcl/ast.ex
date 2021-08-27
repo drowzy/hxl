@@ -3,10 +3,13 @@ defmodule HCL.Ast.Literal do
           value: term()
         }
   defstruct [:value]
+end
 
-  def from_tokens(_rest, [literal], ctx, _line, _offset) do
-    {[%__MODULE__{value: literal}], ctx}
-  end
+defmodule HCL.Ast.Identifier do
+  @type t :: %__MODULE__{
+          name: term()
+        }
+  defstruct [:name]
 end
 
 defmodule HCL.Ast.TemplateExpr do
@@ -16,14 +19,6 @@ defmodule HCL.Ast.TemplateExpr do
         }
 
   defstruct [:delimiter, :lines]
-
-  def from_tokens(_rest, [{:heredoc, [delimiter | lines]}], ctx, _line, _offset) do
-    {[%__MODULE__{delimiter: delimiter, lines: lines}], ctx}
-  end
-
-  def from_tokens(_rest, [{:qouted_template, lines}], ctx, _line, _offset) do
-    {[%__MODULE__{lines: lines}], ctx}
-  end
 end
 
 defmodule HCL.Ast.Tuple do
@@ -31,10 +26,6 @@ defmodule HCL.Ast.Tuple do
           values: list()
         }
   defstruct [:values]
-
-  def from_tokens(_rest, values, ctx, _line, _offset) do
-    {[%__MODULE__{values: Enum.reverse(values)}], ctx}
-  end
 end
 
 defmodule HCL.Ast.Object do
@@ -42,16 +33,6 @@ defmodule HCL.Ast.Object do
           kvs: Map.t()
         }
   defstruct [:kvs]
-
-  def from_tokens(_rest, kvs, ctx, _line, _offset) do
-    kvs =
-      kvs
-      |> Enum.reverse()
-      |> Enum.chunk_every(2)
-      |> Map.new(fn [k, v] -> {k, v} end)
-
-    {[%__MODULE__{kvs: kvs}], ctx}
-  end
 end
 
 defmodule HCL.Ast.FunctionCall do
@@ -62,22 +43,6 @@ defmodule HCL.Ast.FunctionCall do
         }
 
   defstruct [:args, :arity, :name]
-
-  def from_tokens(_rest, [name], ctx, _line, _offset) do
-    {[%__MODULE__{name: name, arity: 0, args: []}], ctx}
-  end
-
-  def from_tokens(_rest, args, ctx, _line, _offset) do
-    [name | args] = Enum.reverse(args)
-
-    call = %__MODULE__{
-      name: name,
-      arity: length(args),
-      args: args
-    }
-
-    {[call], ctx}
-  end
 end
 
 # TODO might need two different expressions
@@ -91,43 +56,60 @@ defmodule HCL.Ast.ForExpr do
         }
 
   defstruct [:keys, :enumerable, :enumerable_type, :body, :conditional]
+end
 
-  def from_tokens(_rest, [{for_type, args}], ctx, _line, _offset)
-      when for_type in [:tuple, :object] do
-    {ids, rest} = Enum.split_while(args, &identifier?/1)
-    {enumerable, body, conditional} = post_process_for_body(for_type, rest)
+defmodule HCL.Ast.Binary do
+  @type t :: %__MODULE__{
+          operator: term(),
+          left: term(),
+          right: term()
+        }
 
-    for_expr = %__MODULE__{
-      keys: post_process_for_ids(ids),
-      enumerable: enumerable,
-      enumerable_type: for_type,
-      body: body,
-      conditional: conditional
-    }
+  defstruct [:operator, :left, :right]
+end
 
-    {[for_expr], ctx}
-  end
+defmodule HCL.Ast.Unary do
+  @type t :: %__MODULE__{
+          operator: term(),
+          expr: term()
+        }
 
-  defp post_process_for_ids(ids) do
-    for {:identifier, id} <- ids, do: id
-  end
+  defstruct [:operator, :expr]
+end
 
-  defp post_process_for_body(:tuple, [enum, body]) do
-    {enum, body, nil}
-  end
+defmodule HCL.Ast.Conditional do
+  @type t :: %__MODULE__{
+          predicate: term(),
+          then_stmt: term(),
+          else_stmt: term()
+        }
 
-  defp post_process_for_body(:tuple, [enum, body | conditional]) do
-    {enum, body, conditional}
-  end
+  defstruct [:predicate, :then_stmt, :else_stmt]
+end
 
-  defp post_process_for_body(:object, [enum, key_expr, value_expr]) do
-    {enum, {key_expr, value_expr}, nil}
-  end
+defmodule HCL.Ast.Attr do
+  @type t :: %__MODULE__{
+          name: String.t(),
+          expr: term()
+        }
 
-  defp post_process_for_body(:object, [enum, key_expr, value_expr | conditional]) do
-    {enum, {key_expr, value_expr}, conditional}
-  end
+  defstruct [:name, :expr]
+end
 
-  defp identifier?({:identifier, _}), do: true
-  defp identifier?(_), do: false
+defmodule HCL.Ast.Block do
+  @type t :: %__MODULE__{
+          type: term(),
+          labels: list(),
+          body: term()
+        }
+
+  defstruct [:type, :labels, :body]
+end
+
+defmodule HCL.Ast.Body do
+  @type t :: %__MODULE__{
+          statements: list()
+        }
+
+  defstruct [:statements]
 end

@@ -1,15 +1,15 @@
 defmodule HCL.Parser.ForExprTest do
   use ExUnit.Case
-  alias HCL.Ast.{ForExpr, Tuple, FunctionCall}
+  alias HCL.Ast.{ForExpr, Tuple, FunctionCall, Identifier}
 
   describe "tuple for expr" do
     test "with variable enumerable" do
       assert {:ok, [%ForExpr{} = for_expr], _, _, _, _} = HCL.Parser.parse_for("[for v in d: v]")
 
       assert for_expr.keys == ["v"]
-      assert for_expr.enumerable == "d"
-      assert for_expr.body == "v"
-      assert for_expr.enumerable_type == :tuple
+      assert for_expr.enumerable == %Identifier{name: "d"}
+      assert for_expr.body == %Identifier{name: "v"}
+      assert for_expr.enumerable_type == :for_tuple
       assert for_expr.conditional == nil
     end
 
@@ -26,8 +26,8 @@ defmodule HCL.Parser.ForExprTest do
 
       assert for_expr.keys == ["v"]
       assert %Tuple{} = for_expr.enumerable
-      assert for_expr.body == "v"
-      assert for_expr.enumerable_type == :tuple
+      assert for_expr.body == %Identifier{name: "v"}
+      assert for_expr.enumerable_type == :for_tuple
     end
 
     test "with function bodies" do
@@ -43,9 +43,9 @@ defmodule HCL.Parser.ForExprTest do
 
       assert for_expr.keys == ["v"]
       assert %Tuple{} = for_expr.enumerable
-      assert for_expr.body == "v"
-      assert for_expr.enumerable_type == :tuple
-      assert for_expr.conditional == ["if", "v"]
+      assert for_expr.body == %Identifier{name: "v"}
+      assert for_expr.enumerable_type == :for_tuple
+      assert for_expr.conditional == ["if", %Identifier{name: "v"}]
     end
   end
 
@@ -55,9 +55,9 @@ defmodule HCL.Parser.ForExprTest do
                HCL.Parser.parse_for("{for v in d: v => v}")
 
       assert for_expr.keys == ["v"]
-      assert for_expr.enumerable == "d"
-      assert for_expr.body == {"v", "v"}
-      assert for_expr.enumerable_type == :object
+      assert for_expr.enumerable == %Identifier{name: "d"}
+      assert for_expr.body == {%Identifier{name: "v"}, %Identifier{name: "v"}}
+      assert for_expr.enumerable_type == :for_object
       assert for_expr.conditional == nil
     end
 
@@ -86,7 +86,7 @@ defmodule HCL.Parser.ForExprTest do
       assert {:ok, [%ForExpr{} = for_expr], _, _, _, _} =
                HCL.Parser.parse_for("{for v in [1, 2]: v => v if v}")
 
-      assert for_expr.conditional == ["if", "v"]
+      assert for_expr.conditional == ["if", %Identifier{name: "v"}]
     end
   end
 end

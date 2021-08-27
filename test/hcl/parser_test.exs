@@ -1,7 +1,18 @@
 defmodule HCL.ParserTest do
   use ExUnit.Case
   alias HCL.Parser
-  alias HCL.Ast.{Tuple, Object, Literal, TemplateExpr, FunctionCall}
+
+  alias HCL.Ast.{
+    Tuple,
+    Object,
+    Literal,
+    TemplateExpr,
+    FunctionCall,
+    Identifier,
+    Attr,
+    Block,
+    Body
+  }
 
   describe "body parser" do
     @tag :skip
@@ -49,8 +60,13 @@ defmodule HCL.ParserTest do
       b = 2
       """
 
-      {:ok, ["a", %Literal{value: {:int, 1}}, "b", %Literal{value: {:int, 2}}], _, _, _, _} =
-        Parser.parse(hcl)
+      {:ok,
+       %Body{
+         statements: [
+           %Attr{name: "a", expr: %Literal{value: {:int, 1}}},
+           %Attr{name: "b", expr: %Literal{value: {:int, 2}}}
+         ]
+       }} = Parser.parse(hcl)
     end
 
     test "supports attrs & blocks" do
@@ -61,32 +77,42 @@ defmodule HCL.ParserTest do
       }
       """
 
-      {:ok, ["a", %Literal{value: {:int, 1}}, "service", "http", "b", %Literal{value: {:int, 2}}],
-       _, _, _, _} = Parser.parse(hcl)
+      {:ok,
+       %Body{
+         statements: [
+           %Attr{name: "a", expr: %Literal{value: {:int, 1}}},
+           %Block{
+             type: "service",
+             labels: ["http"],
+             body: %Body{statements: [%Attr{name: "b", expr: %Literal{value: {:int, 2}}}]}
+           }
+         ]
+       }} = Parser.parse(hcl)
     end
   end
 
   describe "attr parser" do
     test "parses attr assignment with spaces" do
-      assert {:ok, [id, value], _, _, _, _} = Parser.parse("a = 1")
-      assert id == "a"
-      assert value == %Literal{value: {:int, 1}}
+      assert {:ok, %Body{statements: [attr]}} = Parser.parse("a = 1")
+      assert attr.name == "a"
+      assert attr.expr == %Literal{value: {:int, 1}}
     end
 
     test "parses attr assignment without spaces" do
-      assert {:ok, [id, value], _, _, _, _} = Parser.parse("a=1")
-      assert id == "a"
-      assert value == %Literal{value: {:int, 1}}
+      assert {:ok, %Body{statements: [attr]}} = Parser.parse("a=1")
+      assert attr.name == "a"
+      assert attr.expr == %Literal{value: {:int, 1}}
     end
 
     test "parses decimal values" do
-      assert {:ok, [id | values], _, _, _, _} = Parser.parse("a = 1.1")
-      assert id == "a"
-      assert values == [%Literal{value: {:decimal, 1.1}}]
+      assert {:ok, %Body{statements: [attr]}} = Parser.parse("a = 1.1")
+      assert attr.name == "a"
+      assert attr.expr == %Literal{value: {:decimal, 1.1}}
     end
 
     test "parses tuples" do
-      assert {:ok, [_, tuple], _, _, _, _} = Parser.parse("a = [1, true, null, \"string\"]")
+      assert {:ok, %Body{statements: [%Attr{expr: tuple}]}} =
+               Parser.parse("a = [1, true, null, \"string\"]")
 
       assert tuple == %Tuple{
                values: [
@@ -100,15 +126,19 @@ defmodule HCL.ParserTest do
 
     @tag :skip
     test "parses objects" do
-      assert {:ok, [_ | %Object{}], _, _, _, _} = Parser.parse("a = { a: 1, b: true }")
+      assert {:ok, %Body{statements: [%Attr{expr: %Object{}}]}} =
+               Parser.parse("a = { a: 1, b: true }")
     end
 
     test "parses variable expressions" do
-      assert {:ok, ["a", "b"], _, _, _, _} = Parser.parse("a = b")
+      assert {:ok, %Body{statements: [attr]}} = Parser.parse("a = b")
+      assert attr.name == "a"
+      assert attr.expr == %Identifier{name: "b"}
     end
 
     test "parses function calls" do
-      assert {:ok, ["a", %FunctionCall{name: "func"}], _, _, _, _} = Parser.parse("a = func(1)")
+      assert {:ok, %Body{statements: [%Attr{name: "a", expr: %FunctionCall{name: "func"}}]}} =
+               Parser.parse("a = func(1)")
     end
   end
 
@@ -122,33 +152,72 @@ defmodule HCL.ParserTest do
         EOT
         """
 
-        assert {:ok, ["a", %TemplateExpr{delimiter: "EOT", lines: ["hello", "world"]}], _, _, _,
-                _} = Parser.parse(hcl)
+        assert {:ok,
+                %Body{
+                  statements: [
+                    %Attr{
+                      name: "a",
+                      expr: %TemplateExpr{delimiter: "EOT", lines: ["hello", "world"]}
+                    }
+                  ]
+                }} = Parser.parse(hcl)
       end
     end
 
     test "quoted template" do
       hcl = ~S(a = "hello world")
 
-      assert {:ok, ["a", %TemplateExpr{delimiter: nil, lines: ["hello world"]}], _, _, _, _} =
-               Parser.parse(hcl)
+      assert {:ok,
+              %Body{
+                statements: [%Attr{expr: %TemplateExpr{delimiter: nil, lines: ["hello world"]}}]
+              }} = Parser.parse(hcl)
     end
   end
 
   describe "block parser" do
     test "parses blocks with identifiers" do
-      assert {:ok, ["service", "http", "a", %Literal{value: {:int, 1}}], "", _, _, _} =
-               Parser.parse("service http { a = 1 }")
+      assert {:ok,
+              %Body{
+                statements: [
+                  %Block{
+                    body: %Body{
+                      statements: [%Attr{expr: %Literal{value: {:int, 1}}, name: "a"}]
+                    },
+                    labels: ["http"],
+                    type: "service"
+                  }
+                ]
+              }} = Parser.parse("service http { a = 1 }")
     end
 
     test "parses blocks with identifiers with newlines" do
-      assert {:ok, ["service", "http", "a", %Literal{value: {:int, 1}}], "", _, _, _} =
-               Parser.parse("service http {\n a = 1 \n}")
+      assert {:ok,
+              %Body{
+                statements: [
+                  %Block{
+                    body: %Body{
+                      statements: [%Attr{expr: %Literal{value: {:int, 1}}, name: "a"}]
+                    },
+                    labels: ["http"],
+                    type: "service"
+                  }
+                ]
+              }} = Parser.parse("service http {\n a = 1 \n}")
     end
 
     test "parses blocks with string literals" do
-      assert {:ok, ["service", "http", "a", %Literal{value: {:int, 1}}], "", _, _, _} =
-               Parser.parse(~s(service "http" { a = 1 }))
+      assert {:ok,
+              %Body{
+                statements: [
+                  %Block{
+                    body: %Body{
+                      statements: [%Attr{expr: %Literal{value: {:int, 1}}, name: "a"}]
+                    },
+                    labels: ["http"],
+                    type: "service"
+                  }
+                ]
+              }} = Parser.parse(~s(service "http" { a = 1 }))
     end
 
     test "parses block within a block" do
@@ -160,8 +229,10 @@ defmodule HCL.ParserTest do
       }
       """
 
-      {:ok, ["service", "http", "command", "process", "a", %Literal{value: {:int, 1}}], _, _, _,
-       _} = Parser.parse(hcl)
+      {:ok, %Body{statements: [%Block{} = b]}} = Parser.parse(hcl)
+      assert b.type == "service"
+      assert b.labels == ["http"]
+      assert %Body{statements: [%Block{}]} = b.body
     end
 
     test "parses block and attrs inside a block" do
@@ -176,18 +247,25 @@ defmodule HCL.ParserTest do
       """
 
       {:ok,
-       [
-         "service",
-         "http",
-         "a",
-         %Literal{value: {:int, 1}},
-         "b",
-         %Literal{value: {:int, 2}},
-         "command",
-         "process",
-         "c",
-         %Literal{value: {:int, 3}}
-       ], _, _, _, _} = Parser.parse(hcl)
+       %Body{
+         statements: [
+           %Block{
+             body: %Body{
+               statements: [
+                 %Attr{expr: %Literal{value: {:int, 1}}, name: "a"},
+                 %Attr{expr: %Literal{value: {:int, 2}}, name: "b"},
+                 %Block{
+                   body: %Body{statements: [%Attr{expr: %Literal{value: {:int, 3}}, name: "c"}]},
+                   labels: ["process"],
+                   type: "command"
+                 }
+               ]
+             },
+             labels: ["http"],
+             type: "service"
+           }
+         ]
+       }} = Parser.parse(hcl)
     end
   end
 end

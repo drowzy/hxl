@@ -29,8 +29,8 @@ end
 - [x] Attributes
 - [x] Blocks
 - [ ] One-line blocks
-- [ ] Expressions
-  - [ ] [Expr term](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms)
+- [X] Expressions
+  - [x] [Expr term](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms)
     - [x] Literal Value
     - [x] Collection Value
     - [x] Template Expr
@@ -41,5 +41,5 @@ end
     - [x] ExprTerm GetAttr
     - [x] ExprTerm Splat
     - [x] "(" Expression ")"
-  - [ ] Operation
+  - [x] Operation
   - [ ] Conditional
