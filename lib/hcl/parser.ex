@@ -11,6 +11,7 @@ defmodule HCL.Parser do
     ForExpr,
     Binary,
     Unary,
+    AccessOperation,
     Attr,
     Block,
     Body
@@ -235,34 +236,48 @@ defmodule HCL.Parser do
 
   # ### Expr term operations
 
+  # #### Index
+  #
+  # [1,2,3][1]
+  #
   index =
     ignore(open_brack)
     |> optional(blankspace)
+    |> lookahead_not(wildcard)
     |> parsec(:expr)
     |> optional(blankspace)
     |> ignore(close_brack)
+    |> unwrap_and_tag(:index_access)
 
-  get_attr = repeat(ignore(dot) |> concat(identifier))
+  get_attr = times(ignore(dot) |> concat(identifier), min: 1) |> tag(:attr_access)
 
-  # ### Splat
-
+  # #### Splat
+  #
+  # tuple.*.foo.bar[0] == for[v in tuple: v.foo.bar][0]
+  #
   attr_splat =
     ignore(dot)
     |> ignore(wildcard)
     |> concat(get_attr)
+    |> unwrap_and_tag(:attr_splat)
 
+  #
+  # tuple[*].foo.bar[0] == for[v in tuple: v.foo.bar[0]]
+  #
   full_splat =
     ignore(open_brack)
     |> optional(blankspace)
     |> ignore(wildcard)
     |> optional(blankspace)
+    |> ignore(close_brack)
     |> repeat(choice([get_attr, index]))
+    |> tag(:full_splat)
 
   splat = choice([attr_splat, full_splat])
 
   # ### Expr Term
 
-  expr_term_op = choice([index, splat, get_attr])
+  expr_term_op = times(choice([index, splat, get_attr]), min: 1)
 
   expr_term =
     choice([
@@ -274,6 +289,8 @@ defmodule HCL.Parser do
       variable_expr
     ])
     |> optional(expr_term_op)
+    |> tag(:expr_term)
+    |> post_traverse(:ast_node_from_tokens)
 
   # ### Operations
 
@@ -295,7 +312,7 @@ defmodule HCL.Parser do
   operation = choice([unary_op, binary_op]) |> post_traverse(:ast_node_from_tokens)
 
   # Conditional
-  conditional =
+  _conditional =
     parsec(:expr)
     |> concat(blankspace)
     |> string("?")
@@ -348,23 +365,34 @@ defmodule HCL.Parser do
     defparsec(:parse_function, function_call)
     defparsec(:parse_for, for_expr)
     defparsec(:parse_op, operation)
+    defparsec(:parse_expr, expr)
     defparsec(:parse_attr, attr)
   end
 
   defcombinatorp(:expr, expr)
   defcombinatorp(:body, body)
 
-  @spec parse(binary()) :: {:ok, HCL.Ast.Body.t()} | {:error, binary(), {integer(), integer()}}
+  @spec parse(binary()) ::
+          {:ok, HCL.Ast.Body.t()}
+          | {:error, binary(), {pos_integer(), pos_integer()}, pos_integer()}
   def parse(input) do
     case do_parse(input) do
       {:ok, [ast], "", _, _, _} ->
         {:ok, ast}
 
-      {:ok, _, rest, {line, line_offset}, byte_offset} ->
+      {:ok, _parsed, rest, _ctx, {line, line_offset}, byte_offset} ->
         {:error, rest, {line, line_offset}, byte_offset}
 
       err ->
         err
+    end
+  end
+
+  @spec parse!(binary()) :: HCL.Ast.Body.t()
+  def parse!(input) do
+    case parse(input) do
+      {:ok, body} -> body
+      _ -> raise "parser err"
     end
   end
 
@@ -439,6 +467,19 @@ defmodule HCL.Parser do
     {[%Unary{operator: String.to_existing_atom(op), expr: expr}], ctx}
   end
 
+  defp ast_node_from_tokens(_rest, [expr_term: [expr]], ctx, _line, _offset) do
+    {[expr], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [expr_term: expr_ops], ctx, _line, _offset) do
+    ops_tree =
+      expr_ops
+      |> Enum.reverse()
+      |> build_expr_op_tree()
+
+    {[ops_tree], ctx}
+  end
+
   defp ast_node_from_tokens(_rest, [attr: [name, expr]], ctx, _line, _offset) do
     {[%Attr{name: name, expr: expr}], ctx}
   end
@@ -461,6 +502,14 @@ defmodule HCL.Parser do
 
   defp ast_node_from_tokens(_rest, [body: stmts], ctx, _line, _offset) do
     {[%Body{statements: stmts}], ctx}
+  end
+
+  defp build_expr_op_tree([op, expr]) do
+    %AccessOperation{expr: expr, operation: op}
+  end
+
+  defp build_expr_op_tree([op | expr_ops]) do
+    %AccessOperation{expr: build_expr_op_tree(expr_ops), operation: op}
   end
 
   defp post_process_for_ids(ids) do

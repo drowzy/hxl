@@ -77,6 +77,14 @@ defmodule HCL.Ast.Unary do
   defstruct [:operator, :expr]
 end
 
+defmodule HCL.Ast.AccessOperation do
+  @type t :: %__MODULE__{
+          operation: term(),
+          expr: term()
+        }
+  defstruct [:operation, :expr]
+end
+
 defmodule HCL.Ast.Conditional do
   @type t :: %__MODULE__{
           predicate: term(),
