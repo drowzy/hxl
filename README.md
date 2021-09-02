@@ -15,6 +15,59 @@ def deps do
 end
 ```
 
+## Usage
+
+```elixir
+hcl = """
+resource "upcloud_server" "server1" {
+  hostname = "terraform.example.com"
+
+  zone = "nl-ams1"
+
+  plan = "1xCPU-1GB"
+
+  template {
+    size = 25
+    storage = "01000000-0000-4000-8000-000030200200"
+  }
+
+  network_interface {
+    type = "public"
+  }
+
+  login {
+    user = "root"
+    keys = [
+      "ssh-rsa public key",
+    ]
+    create_password = true
+    password_delivery = "email"
+  }
+
+  connection {
+    host        = self.network_interface[0].ip_address
+    type        = "ssh"
+    user        = "root"
+    private_key = file("~/.ssh/rsa_private_key")
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "echo 'Hello world!'"
+    ]
+  }
+}
+"""
+
+{:ok, %HCL.Ast.Body{}} = HCL.from_binary(hcl)
+```
+
+### From file
+
+```elixir
+{:ok, %HCL.Ast.Body{}} = HCL.from_file("/path/to/file")
+```
+
 ## HCL Syntax Specification
 
 ### Lexical Elements
