@@ -123,8 +123,9 @@ defmodule HCL.Parser do
 
   tuple =
     ignore(open_brack)
-    |> optional(blankspace)
+    |> ignore(optional(whitespace))
     |> repeat(arg)
+    |> ignore(optional(whitespace))
     |> ignore(close_brack)
     |> tag(:tuple)
 

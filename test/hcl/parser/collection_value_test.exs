@@ -13,6 +13,13 @@ defmodule HCL.Parser.CollectionValueTest do
            ]
   end
 
+  test "tuple with newlines" do
+    hcl = "[\n  1,\n  2,\n  3\n]"
+
+    assert {:ok, [%Tuple{values: values}], _, _, _, _} = Parser.parse_collection(hcl)
+    refute values == []
+  end
+
   test "parses empty tuple" do
     assert {:ok, [%Tuple{values: []}], _, _, _, _} = Parser.parse_collection("[]")
   end
