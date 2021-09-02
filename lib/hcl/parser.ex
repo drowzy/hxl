@@ -2,19 +2,20 @@ defmodule HCL.Parser do
   import NimbleParsec
 
   alias HCL.Ast.{
-    Literal,
-    Identifier,
-    TemplateExpr,
-    Tuple,
-    Object,
-    FunctionCall,
-    ForExpr,
-    Binary,
-    Unary,
     AccessOperation,
     Attr,
+    Binary,
     Block,
-    Body
+    Body,
+    Comment,
+    ForExpr,
+    FunctionCall,
+    Identifier,
+    Literal,
+    Object,
+    TemplateExpr,
+    Tuple,
+    Unary
   }
 
   ########################################
@@ -52,6 +53,22 @@ defmodule HCL.Parser do
   fat_arrow = string("=>")
   assign = choice([eq, colon])
 
+  ###
+  # ## Comments
+  #
+
+  line_comment =
+    choice([
+      ignore(string("//")),
+      ignore(string("#"))
+    ])
+    |> optional(blankspace)
+    |> utf8_string([not: ?\n], min: 1)
+    |> ignore(newline)
+    |> tag(:comment)
+    |> post_traverse(:ast_node_from_tokens)
+
+  defcombinatorp(:__comment__, line_comment)
   ########################################
   #
   # ## Expr
@@ -494,10 +511,11 @@ defmodule HCL.Parser do
     |> optional(blankspace)
     |> ignore(eq)
     |> optional(blankspace)
-    |> concat(expr)
+    |> parsec(:expr)
     |> tag(:attr)
     |> post_traverse(:ast_node_from_tokens)
 
+  defcombinatorp(:__attr__, attr)
   ##########################
   # ## Block
   #
@@ -516,13 +534,20 @@ defmodule HCL.Parser do
     |> tag(:block)
     |> post_traverse(:ast_node_from_tokens)
 
+  defcombinatorp(:__block__, block)
   ##########################
   # ## body
   #
   # Body = (Attribute | Block | OneLineBlock)*;
   #
   body =
-    repeat(choice([attr, block]) |> ignore(optional(whitespace)))
+    repeat(
+      choice([
+        parsec(:__attr__),
+        parsec(:__comment__),
+        parsec(:__block__)
+      ]) |> ignore(optional(whitespace))
+    )
     |> tag(:body)
     |> post_traverse(:ast_node_from_tokens)
 
@@ -650,6 +675,10 @@ defmodule HCL.Parser do
 
   defp ast_node_from_tokens(_rest, [attr: [name, expr]], ctx, _line, _offset) do
     {[%Attr{name: name, expr: expr}], ctx}
+  end
+
+  defp ast_node_from_tokens(_rest, [comment: lines], ctx, _line, _offset) do
+    {[%Comment{lines: lines, type: :line}], ctx}
   end
 
   defp ast_node_from_tokens(_rest, [block: [type | args]], ctx, _line, _offset) do

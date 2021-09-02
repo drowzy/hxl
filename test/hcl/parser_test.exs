@@ -3,15 +3,16 @@ defmodule HCL.ParserTest do
   alias HCL.Parser
 
   alias HCL.Ast.{
-    Tuple,
-    Object,
-    Literal,
-    TemplateExpr,
-    FunctionCall,
-    Identifier,
     Attr,
     Block,
-    Body
+    Body,
+    Comment,
+    FunctionCall,
+    Identifier,
+    Literal,
+    Object,
+    TemplateExpr,
+    Tuple
   }
 
   describe "body parser" do
@@ -52,6 +53,15 @@ defmodule HCL.ParserTest do
          "/usr/local/bin/awesome-app",
          "mgmt"
        ], _, _, _, _} = Parser.parse(hcl)
+    end
+
+    test "can parse comments" do
+      for seq <- ["//", "#"] do
+        hcl = """
+        #{seq} hello_world
+        """
+        {:ok, %Body{statements: [%Comment{}]}} = Parser.parse(hcl)
+      end
     end
 
     test "supports multiple attrs" do
