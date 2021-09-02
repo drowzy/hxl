@@ -57,11 +57,16 @@ defmodule HCL.Parser do
   # ## Expr
   #
   # ### Literal Value
+
   #
+  # NumericLit = decimal+ ("." decimal+)? (expmark decimal+)?;
+  # decimal    = '0' .. '9';
+  # expmark    = ('e' | 'E') ("+" | "-")?;
+  #
+
   expmark = ascii_string([?e, ?E, ?+, ?-], max: 1)
   int = integer(min: 1)
-  # NumericLit = decimal+ ("." decimal+)? (expmark decimal+)?;
-  #
+
   numeric_lit =
     int
     |> optional(ignore(dot) |> concat(int))
@@ -78,15 +83,18 @@ defmodule HCL.Parser do
   end
 
   defp tag_and_emit_numeric_lit(_rest, [_pow, exp, _base] = args, ctx, _line, _offset)
-  when is_binary(exp) do
+       when is_binary(exp) do
     {[{:exp, args}], ctx}
   end
 
   defp tag_and_emit_numeric_lit(_rest, [_pow, exp, _frac, _base] = args, ctx, _line, _offset)
-  when is_binary(exp) do
+       when is_binary(exp) do
     {[{:float_exp, args}], ctx}
   end
 
+  #
+  #  StringLit = 
+  #
   # https://github.com/dashbitco/nimble_parsec/blob/master/examples/simple_language.exs#L17
   string_lit =
     ignore(ascii_char([?"]))
@@ -100,9 +108,14 @@ defmodule HCL.Parser do
     |> ignore(ascii_char([?"]))
     |> reduce({List, :to_string, []})
 
-  # Null
+  #
+  # null
+  #
   null = string("null") |> replace(nil) |> unwrap_and_tag(:null)
 
+  #
+  # true | false
+  #
   bool =
     choice([
       string("true") |> replace(true),
@@ -110,6 +123,14 @@ defmodule HCL.Parser do
     ])
     |> unwrap_and_tag(:bool)
 
+  #
+  # LiteralValue = (
+  #   NumericLit |
+  #   "true" |
+  #   "false" |
+  #   "null"
+  # );
+  #
   literal_value =
     choice([
       numeric_lit,
@@ -119,13 +140,15 @@ defmodule HCL.Parser do
     |> unwrap_and_tag(:literal)
     |> post_traverse(:ast_node_from_tokens)
 
-  defparsec(:__literal_value__, literal_value)
+  defcombinatorp(:__literal_value__, literal_value)
 
   # ### CollectionValue
 
   arg = parsec(:expr) |> ignore(optional(comma)) |> ignore(optional(whitespace))
 
-  ## Tuple : [ Expr ]
+  #
+  # Tuple = "[" ((Expression ("," Expression)* ","?)?) "]";
+  #
   tuple =
     ignore(open_brack)
     |> ignore(optional(whitespace))
@@ -134,8 +157,9 @@ defmodule HCL.Parser do
     |> ignore(close_brack)
     |> tag(:tuple)
 
-  defparsec(:__tuple__, tuple)
-  # TODO should be able to be an expression
+  #
+  # objectelem = (Identifier | Expression) ("=" | ":") Expression;
+  #
   object_elem =
     identifier
     |> ignore(optional(whitespace))
@@ -145,6 +169,9 @@ defmodule HCL.Parser do
     |> ignore(optional(comma))
     |> ignore(optional(whitespace))
 
+  #
+  # object = "{" ((objectelem ("," objectelem)* ","?)?) "}";
+  #
   object =
     ignore(open_brace)
     |> optional(blankspace)
@@ -152,14 +179,20 @@ defmodule HCL.Parser do
     |> ignore(close_brace)
     |> tag(:object)
 
-  defparsec(:__object__, object)
+  defcombinatorp(:__object__, object)
+  defcombinatorp(:__tuple__, tuple)
 
+  #
+  # CollectionValue = tuple | object;
+  #
   collection_value =
-    # choice([tuple, object])
-    choice([parsec(:__tuple__), parsec(:__object__)])
+    choice([
+      parsec(:__tuple__),
+      parsec(:__object__)
+    ])
     |> post_traverse(:ast_node_from_tokens)
 
-  defparsec(:__collection_value__, collection_value)
+  defcombinatorp(:__collection_value__, collection_value)
 
   # ### Template Expr
   # TODO If a heredoc template is introduced with the <<- symbol, any literal string at the start of each line is analyzed to find the minimum number of leading spaces, and then that number of prefix spaces is removed from all line-leading literal strings. The final closing marker may also have an arbitrary number of spaces preceding it on its line.
@@ -175,15 +208,17 @@ defmodule HCL.Parser do
     |> post_traverse(:validate_heredoc_matching_terminator)
     |> tag(:heredoc)
 
-  defparsec(:__qouted_template__, quoted_template)
-  defparsec(:__heredoc_template__, heredoc_template)
+  defcombinatorp(:__qouted_template__, quoted_template)
+  defcombinatorp(:__heredoc_template__, heredoc_template)
 
   template_expr =
-    # choice([quoted_template, heredoc_template])
-    choice([parsec(:__qouted_template__), parsec(:__heredoc_template__)])
+    choice([
+      parsec(:__qouted_template__),
+      parsec(:__heredoc_template__)
+    ])
     |> post_traverse(:ast_node_from_tokens)
 
-  defparsec(:__template_expr__, template_expr)
+  defcombinatorp(:__template_expr__, template_expr)
 
   defp validate_heredoc_matching_terminator(_rest, [close_id | content], ctx, _line, _offset) do
     [open_id | _] = Enum.reverse(content)
@@ -195,11 +230,18 @@ defmodule HCL.Parser do
     end
   end
 
-  variable_expr = identifier |> tag(:identifier) |> post_traverse(:ast_node_from_tokens)
-  defparsec(:__variable_expr__, variable_expr)
+  # ### Variable Expr
+
+  variable_expr =
+    identifier
+    |> tag(:identifier)
+    |> post_traverse(:ast_node_from_tokens)
+
+  defcombinatorp(:__variable_expr__, variable_expr)
+
+  # ### Function call
 
   arguments = optional(repeat(arg))
-  # ### Function call
 
   function_call =
     identifier
@@ -209,12 +251,11 @@ defmodule HCL.Parser do
     |> tag(:function_call)
     |> post_traverse(:ast_node_from_tokens)
 
-  defparsec(:__function_call__, function_call)
+  defcombinatorp(:__function_call__, function_call)
+
   # ### for Expression
 
   for_cond = string("if") |> ignore(whitespace) |> parsec(:expr)
-
-  defparsec(:__for_cond__, for_cond)
 
   for_identifier =
     identifier
@@ -222,12 +263,10 @@ defmodule HCL.Parser do
     |> ignore(optional(whitespace))
     |> unwrap_and_tag(:identifier)
 
-  defparsec(:__for_identifier__, for_identifier)
-
   for_intro =
     ignore(string("for"))
     |> ignore(whitespace)
-    |> repeat(lookahead_not(string("in")) |> concat(for_identifier))
+    |> repeat(lookahead_not(string("in")) |> parsec(:__for_identifier__))
     |> ignore(optional(whitespace))
     |> ignore(string("in"))
     |> ignore(whitespace)
@@ -235,26 +274,25 @@ defmodule HCL.Parser do
     |> optional(ignore(whitespace))
     |> ignore(colon)
 
-  defparsec(:__for_intro__, for_intro)
+  defcombinatorp(:__for_identifier__, for_identifier)
+  defcombinatorp(:__for_cond__, for_cond)
+  defcombinatorp(:__for_intro__, for_intro)
 
   for_tuple =
     ignore(open_brack)
     |> optional(blankspace)
-    # |> concat(for_intro)
     |> parsec(:__for_intro__)
     |> ignore(whitespace)
     |> parsec(:expr)
-    # |> optional(ignore(whitespace) |> concat(for_cond))
     |> optional(ignore(whitespace) |> parsec(:__for_cond__))
     |> ignore(close_brack)
     |> tag(:for_tuple)
 
-  defparsec(:__for_tuple, for_tuple)
+  defcombinatorp(:__for_tuple, for_tuple)
 
   for_object =
     ignore(open_brace)
     |> optional(blankspace)
-    # |> concat(for_intro)
     |> parsec(:__for_intro__)
     |> ignore(whitespace)
     |> parsec(:expr)
@@ -262,20 +300,22 @@ defmodule HCL.Parser do
     |> ignore(fat_arrow)
     |> ignore(whitespace)
     |> parsec(:expr)
-    # |> optional(ignore(whitespace) |> concat(for_cond))
     |> optional(ignore(whitespace) |> parsec(:__for_cond__))
     |> ignore(close_brace)
     |> tag(:for_object)
 
-  defparsec(:__for_tuple__, for_tuple)
-  defparsec(:__for_object__, for_object)
+  defcombinatorp(:__for_tuple__, for_tuple)
+  defcombinatorp(:__for_object__, for_object)
 
   for_expr =
-    # choice([for_tuple, for_object])
-    choice([parsec(:__for_tuple__), parsec(:__for_object__)])
+    choice([
+      parsec(:__for_tuple__),
+      parsec(:__for_object__)
+    ])
     |> post_traverse(:ast_node_from_tokens)
 
-  defparsec(:__for_expr__, for_expr)
+  defcombinatorp(:__for_expr__, for_expr)
+
   # ### Expr term operations
 
   # #### Index
@@ -291,11 +331,10 @@ defmodule HCL.Parser do
     |> ignore(close_brack)
     |> unwrap_and_tag(:index_access)
 
-  defparsec(:__index__, index)
-
   get_attr = times(ignore(dot) |> concat(identifier), min: 1) |> tag(:attr_access)
 
-  defparsec(:__get_attr__, get_attr)
+  defcombinatorp(:__get_attr__, get_attr)
+  defcombinatorp(:__index__, index)
 
   # #### Splat
   #
@@ -304,11 +343,10 @@ defmodule HCL.Parser do
   attr_splat =
     ignore(dot)
     |> ignore(wildcard)
-    # |> concat(get_attr)
     |> parsec(:__get_attr__)
     |> unwrap_and_tag(:attr_splat)
 
-  defparsec(:__attr_splat__, attr_splat)
+  defcombinatorp(:__attr_splat__, attr_splat)
 
   #
   # tuple[*].foo.bar[0] == for[v in tuple: v.foo.bar[0]]
@@ -319,30 +357,51 @@ defmodule HCL.Parser do
     |> ignore(wildcard)
     |> optional(blankspace)
     |> ignore(close_brack)
-    # |> repeat(choice([get_attr, index]))
-    |> repeat(choice([parsec(:__get_attr__), parsec(:__index__)]))
+    |> repeat(
+      choice([
+        parsec(:__get_attr__),
+        parsec(:__index__)
+      ])
+    )
     |> tag(:full_splat)
 
-  defparsec(:__full_splat__, full_splat)
+  defcombinatorp(:__full_splat__, full_splat)
 
-  # splat = choice([attr_splat, full_splat])
-  splat = choice([parsec(:__attr_splat__), parsec(:__full_splat__)])
-  defparsec(:__splat__, splat)
+  splat =
+    choice([
+      parsec(:__attr_splat__),
+      parsec(:__full_splat__)
+    ])
+
+  defcombinatorp(:__splat__, splat)
 
   # ### Expr Term
-
+  #
+  # ExprTerm = (
+  #   LiteralValue     |
+  #   CollectionValue  |
+  #   TemplateExpr     |
+  #   VariableExpr     |
+  #   FunctionCall     |
+  #   ForExpr          |
+  #   ExprTerm Index   |
+  #   ExprTerm GetAttr |
+  #   ExprTerm Splat   |
+  #   "(" Expression ")"
+  # );
+  #
   # expr_term_op = times(choice([index, splat, get_attr]), min: 1)
-  expr_term_op = times(choice([parsec(:__index__), parsec(:__splat__), parsec(:__get_attr__)]), min: 1)
+  expr_term_op =
+    times(
+      choice([
+        parsec(:__index__),
+        parsec(:__splat__),
+        parsec(:__get_attr__)
+      ]),
+      min: 1
+    )
 
   expr_term =
-    # choice([
-    #   literal_value,
-    #   collection_value,
-    #   for_expr,
-    #   template_expr,
-    #   function_call,
-    #   variable_expr
-    # ])
     choice([
       parsec(:__literal_value__),
       parsec(:__collection_value__),
@@ -355,36 +414,55 @@ defmodule HCL.Parser do
     |> tag(:expr_term)
     |> post_traverse(:ast_node_from_tokens)
 
-  defparsec(:__expr_term__, expr_term)
+  defcombinatorp(:__expr_term__, expr_term)
   # ### Operations
 
-  compare_op = choice([eqeq, not_eq, lt_eq, gt_eq, lt, gt])
-  arithmetic_op = choice([sum, diff, product, quotient, remainder])
+  compare_op =
+    choice([
+      eqeq,
+      not_eq,
+      lt_eq,
+      gt_eq,
+      lt,
+      gt
+    ])
+
+  arithmetic_op =
+    choice([
+      sum,
+      diff,
+      product,
+      quotient,
+      remainder
+    ])
+
   logic_op = choice([and_, or_])
 
   binary_operator = choice([compare_op, arithmetic_op, logic_op])
-  defparsec(:__binary_operator__, binary_operator)
 
   binary_op =
     expr_term
     |> optional(ignore(whitespace))
-    # |> concat(binary_operator)
     |> parsec(:__binary_operator__)
     |> optional(ignore(whitespace))
-    # |> concat(expr_term)
     |> parsec(:__expr_term__)
     |> tag(:binary)
 
-  defparsec(:__binary_op__, binary_op)
-
-  # unary_op = choice([diff, not_]) |> concat(expr_term) |> tag(:unary)
   unary_op = choice([diff, not_]) |> parsec(:__expr_term__) |> tag(:unary)
-  defparsec(:__unary_op__, unary_op)
+
+  defcombinatorp(:__binary_operator__, binary_operator)
+  defcombinatorp(:__binary_op__, binary_op)
+  defcombinatorp(:__unary_op__, unary_op)
 
   # operation = choice([unary_op, binary_op]) |> post_traverse(:ast_node_from_tokens)
-  operation = choice([parsec(:__unary_op__), parsec(:__binary_op__)]) |> post_traverse(:ast_node_from_tokens)
+  operation =
+    choice([
+      parsec(:__unary_op__),
+      parsec(:__binary_op__)
+    ])
+    |> post_traverse(:ast_node_from_tokens)
 
-  defparsec(:__operation__, operation)
+  defcombinatorp(:__operation__, operation)
 
   # Conditional
   _conditional =
@@ -398,11 +476,20 @@ defmodule HCL.Parser do
     |> concat(blankspace)
     |> parsec(:expr)
 
-  # expr = choice([operation, expr_term])
-  expr = choice([parsec(:__operation__), parsec(:__expr_term__)])
+  #
+  # Expression = (ExprTerm | Operation | Conditional);
+  #
+  expr =
+    choice([
+      parsec(:__operation__),
+      parsec(:__expr_term__)
+    ])
 
   ##########################
   # ## Attribute
+  #
+  # Attribute = Identifier "=" Expression Newline;
+  #
   attr =
     identifier
     |> optional(blankspace)
@@ -414,6 +501,9 @@ defmodule HCL.Parser do
 
   ##########################
   # ## Block
+  #
+  # Block = Identifier (StringLit|Identifier)* "{" Newline Body "}" Newline;
+  #
   block =
     optional(blankspace)
     |> concat(identifier)
@@ -429,6 +519,9 @@ defmodule HCL.Parser do
 
   ##########################
   # ## body
+  #
+  # Body = (Attribute | Block | OneLineBlock)*;
+  #
   body =
     repeat(choice([attr, block]) |> ignore(optional(whitespace)))
     |> tag(:body)
@@ -458,6 +551,7 @@ defmodule HCL.Parser do
 
       {:ok, _parsed, rest, _ctx, {line, line_offset}, byte_offset} ->
         {:error, rest, {line, line_offset}, byte_offset}
+
       err ->
         err
     end
