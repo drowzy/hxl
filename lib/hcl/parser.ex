@@ -61,11 +61,31 @@ defmodule HCL.Parser do
   expmark = ascii_string([?e, ?E, ?+, ?-], max: 1)
   int = integer(min: 1)
   # NumericLit = decimal+ ("." decimal+)? (expmark decimal+)?;
+  #
   numeric_lit =
     int
     |> optional(ignore(dot) |> concat(int))
     |> optional(expmark |> concat(int))
     |> post_traverse(:tag_and_emit_numeric_lit)
+
+  defp tag_and_emit_numeric_lit(_rest, [int_value], ctx, _line, _offset) do
+    {[{:int, int_value}], ctx}
+  end
+
+  defp tag_and_emit_numeric_lit(_rest, [frac, base], ctx, _line, _offset) do
+    {value, _} = Float.parse("#{base}.#{frac}")
+    {[{:decimal, value}], ctx}
+  end
+
+  defp tag_and_emit_numeric_lit(_rest, [_pow, exp, _base] = args, ctx, _line, _offset)
+  when is_binary(exp) do
+    {[{:exp, args}], ctx}
+  end
+
+  defp tag_and_emit_numeric_lit(_rest, [_pow, exp, _frac, _base] = args, ctx, _line, _offset)
+  when is_binary(exp) do
+    {[{:float_exp, args}], ctx}
+  end
 
   # https://github.com/dashbitco/nimble_parsec/blob/master/examples/simple_language.exs#L17
   string_lit =
@@ -80,6 +100,7 @@ defmodule HCL.Parser do
     |> ignore(ascii_char([?"]))
     |> reduce({List, :to_string, []})
 
+  # Null
   null = string("null") |> replace(nil) |> unwrap_and_tag(:null)
 
   bool =
@@ -98,29 +119,13 @@ defmodule HCL.Parser do
     |> unwrap_and_tag(:literal)
     |> post_traverse(:ast_node_from_tokens)
 
-  defp tag_and_emit_numeric_lit(_rest, [int_value], ctx, _line, _offset) do
-    {[{:int, int_value}], ctx}
-  end
-
-  defp tag_and_emit_numeric_lit(_rest, [frac, base], ctx, _line, _offset) do
-    {value, _} = Float.parse("#{base}.#{frac}")
-    {[{:decimal, value}], ctx}
-  end
-
-  defp tag_and_emit_numeric_lit(_rest, [_pow, exp, _base] = args, ctx, _line, _offset)
-       when is_binary(exp) do
-    {[{:exp, args}], ctx}
-  end
-
-  defp tag_and_emit_numeric_lit(_rest, [_pow, exp, _frac, _base] = args, ctx, _line, _offset)
-       when is_binary(exp) do
-    {[{:float_exp, args}], ctx}
-  end
+  defparsec(:__literal_value__, literal_value)
 
   # ### CollectionValue
 
   arg = parsec(:expr) |> ignore(optional(comma)) |> ignore(optional(whitespace))
 
+  ## Tuple : [ Expr ]
   tuple =
     ignore(open_brack)
     |> ignore(optional(whitespace))
@@ -129,6 +134,7 @@ defmodule HCL.Parser do
     |> ignore(close_brack)
     |> tag(:tuple)
 
+  defparsec(:__tuple__, tuple)
   # TODO should be able to be an expression
   object_elem =
     identifier
@@ -146,7 +152,14 @@ defmodule HCL.Parser do
     |> ignore(close_brace)
     |> tag(:object)
 
-  collection_value = choice([tuple, object]) |> post_traverse(:ast_node_from_tokens)
+  defparsec(:__object__, object)
+
+  collection_value =
+    # choice([tuple, object])
+    choice([parsec(:__tuple__), parsec(:__object__)])
+    |> post_traverse(:ast_node_from_tokens)
+
+  defparsec(:__collection_value__, collection_value)
 
   # ### Template Expr
   # TODO If a heredoc template is introduced with the <<- symbol, any literal string at the start of each line is analyzed to find the minimum number of leading spaces, and then that number of prefix spaces is removed from all line-leading literal strings. The final closing marker may also have an arbitrary number of spaces preceding it on its line.
@@ -162,8 +175,15 @@ defmodule HCL.Parser do
     |> post_traverse(:validate_heredoc_matching_terminator)
     |> tag(:heredoc)
 
+  defparsec(:__qouted_template__, quoted_template)
+  defparsec(:__heredoc_template__, heredoc_template)
+
   template_expr =
-    choice([quoted_template, heredoc_template]) |> post_traverse(:ast_node_from_tokens)
+    # choice([quoted_template, heredoc_template])
+    choice([parsec(:__qouted_template__), parsec(:__heredoc_template__)])
+    |> post_traverse(:ast_node_from_tokens)
+
+  defparsec(:__template_expr__, template_expr)
 
   defp validate_heredoc_matching_terminator(_rest, [close_id | content], ctx, _line, _offset) do
     [open_id | _] = Enum.reverse(content)
@@ -176,8 +196,9 @@ defmodule HCL.Parser do
   end
 
   variable_expr = identifier |> tag(:identifier) |> post_traverse(:ast_node_from_tokens)
-  arguments = optional(repeat(arg))
+  defparsec(:__variable_expr__, variable_expr)
 
+  arguments = optional(repeat(arg))
   # ### Function call
 
   function_call =
@@ -188,15 +209,20 @@ defmodule HCL.Parser do
     |> tag(:function_call)
     |> post_traverse(:ast_node_from_tokens)
 
+  defparsec(:__function_call__, function_call)
   # ### for Expression
 
   for_cond = string("if") |> ignore(whitespace) |> parsec(:expr)
+
+  defparsec(:__for_cond__, for_cond)
 
   for_identifier =
     identifier
     |> ignore(optional(comma))
     |> ignore(optional(whitespace))
     |> unwrap_and_tag(:identifier)
+
+  defparsec(:__for_identifier__, for_identifier)
 
   for_intro =
     ignore(string("for"))
@@ -209,32 +235,47 @@ defmodule HCL.Parser do
     |> optional(ignore(whitespace))
     |> ignore(colon)
 
+  defparsec(:__for_intro__, for_intro)
+
   for_tuple =
     ignore(open_brack)
     |> optional(blankspace)
-    |> concat(for_intro)
+    # |> concat(for_intro)
+    |> parsec(:__for_intro__)
     |> ignore(whitespace)
     |> parsec(:expr)
-    |> optional(ignore(whitespace) |> concat(for_cond))
+    # |> optional(ignore(whitespace) |> concat(for_cond))
+    |> optional(ignore(whitespace) |> parsec(:__for_cond__))
     |> ignore(close_brack)
     |> tag(:for_tuple)
+
+  defparsec(:__for_tuple, for_tuple)
 
   for_object =
     ignore(open_brace)
     |> optional(blankspace)
-    |> concat(for_intro)
+    # |> concat(for_intro)
+    |> parsec(:__for_intro__)
     |> ignore(whitespace)
     |> parsec(:expr)
     |> ignore(whitespace)
     |> ignore(fat_arrow)
     |> ignore(whitespace)
     |> parsec(:expr)
-    |> optional(ignore(whitespace) |> concat(for_cond))
+    # |> optional(ignore(whitespace) |> concat(for_cond))
+    |> optional(ignore(whitespace) |> parsec(:__for_cond__))
     |> ignore(close_brace)
     |> tag(:for_object)
 
-  for_expr = choice([for_tuple, for_object]) |> post_traverse(:ast_node_from_tokens)
+  defparsec(:__for_tuple__, for_tuple)
+  defparsec(:__for_object__, for_object)
 
+  for_expr =
+    # choice([for_tuple, for_object])
+    choice([parsec(:__for_tuple__), parsec(:__for_object__)])
+    |> post_traverse(:ast_node_from_tokens)
+
+  defparsec(:__for_expr__, for_expr)
   # ### Expr term operations
 
   # #### Index
@@ -250,7 +291,11 @@ defmodule HCL.Parser do
     |> ignore(close_brack)
     |> unwrap_and_tag(:index_access)
 
+  defparsec(:__index__, index)
+
   get_attr = times(ignore(dot) |> concat(identifier), min: 1) |> tag(:attr_access)
+
+  defparsec(:__get_attr__, get_attr)
 
   # #### Splat
   #
@@ -259,8 +304,11 @@ defmodule HCL.Parser do
   attr_splat =
     ignore(dot)
     |> ignore(wildcard)
-    |> concat(get_attr)
+    # |> concat(get_attr)
+    |> parsec(:__get_attr__)
     |> unwrap_and_tag(:attr_splat)
+
+  defparsec(:__attr_splat__, attr_splat)
 
   #
   # tuple[*].foo.bar[0] == for[v in tuple: v.foo.bar[0]]
@@ -271,28 +319,43 @@ defmodule HCL.Parser do
     |> ignore(wildcard)
     |> optional(blankspace)
     |> ignore(close_brack)
-    |> repeat(choice([get_attr, index]))
+    # |> repeat(choice([get_attr, index]))
+    |> repeat(choice([parsec(:__get_attr__), parsec(:__index__)]))
     |> tag(:full_splat)
 
-  splat = choice([attr_splat, full_splat])
+  defparsec(:__full_splat__, full_splat)
+
+  # splat = choice([attr_splat, full_splat])
+  splat = choice([parsec(:__attr_splat__), parsec(:__full_splat__)])
+  defparsec(:__splat__, splat)
 
   # ### Expr Term
 
-  expr_term_op = times(choice([index, splat, get_attr]), min: 1)
+  # expr_term_op = times(choice([index, splat, get_attr]), min: 1)
+  expr_term_op = times(choice([parsec(:__index__), parsec(:__splat__), parsec(:__get_attr__)]), min: 1)
 
   expr_term =
+    # choice([
+    #   literal_value,
+    #   collection_value,
+    #   for_expr,
+    #   template_expr,
+    #   function_call,
+    #   variable_expr
+    # ])
     choice([
-      literal_value,
-      collection_value,
-      for_expr,
-      template_expr,
-      function_call,
-      variable_expr
+      parsec(:__literal_value__),
+      parsec(:__collection_value__),
+      parsec(:__for_expr__),
+      parsec(:__template_expr__),
+      parsec(:__function_call__),
+      parsec(:__variable_expr__)
     ])
     |> optional(expr_term_op)
     |> tag(:expr_term)
     |> post_traverse(:ast_node_from_tokens)
 
+  defparsec(:__expr_term__, expr_term)
   # ### Operations
 
   compare_op = choice([eqeq, not_eq, lt_eq, gt_eq, lt, gt])
@@ -300,17 +363,28 @@ defmodule HCL.Parser do
   logic_op = choice([and_, or_])
 
   binary_operator = choice([compare_op, arithmetic_op, logic_op])
+  defparsec(:__binary_operator__, binary_operator)
 
   binary_op =
     expr_term
     |> optional(ignore(whitespace))
-    |> concat(binary_operator)
+    # |> concat(binary_operator)
+    |> parsec(:__binary_operator__)
     |> optional(ignore(whitespace))
-    |> concat(expr_term)
+    # |> concat(expr_term)
+    |> parsec(:__expr_term__)
     |> tag(:binary)
 
-  unary_op = choice([diff, not_]) |> concat(expr_term) |> tag(:unary)
-  operation = choice([unary_op, binary_op]) |> post_traverse(:ast_node_from_tokens)
+  defparsec(:__binary_op__, binary_op)
+
+  # unary_op = choice([diff, not_]) |> concat(expr_term) |> tag(:unary)
+  unary_op = choice([diff, not_]) |> parsec(:__expr_term__) |> tag(:unary)
+  defparsec(:__unary_op__, unary_op)
+
+  # operation = choice([unary_op, binary_op]) |> post_traverse(:ast_node_from_tokens)
+  operation = choice([parsec(:__unary_op__), parsec(:__binary_op__)]) |> post_traverse(:ast_node_from_tokens)
+
+  defparsec(:__operation__, operation)
 
   # Conditional
   _conditional =
@@ -324,7 +398,8 @@ defmodule HCL.Parser do
     |> concat(blankspace)
     |> parsec(:expr)
 
-  expr = choice([operation, expr_term])
+  # expr = choice([operation, expr_term])
+  expr = choice([parsec(:__operation__), parsec(:__expr_term__)])
 
   ##########################
   # ## Attribute
@@ -383,7 +458,6 @@ defmodule HCL.Parser do
 
       {:ok, _parsed, rest, _ctx, {line, line_offset}, byte_offset} ->
         {:error, rest, {line, line_offset}, byte_offset}
-
       err ->
         err
     end
