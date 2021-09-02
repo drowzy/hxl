@@ -390,7 +390,6 @@ defmodule HCL.Parser do
   #   "(" Expression ")"
   # );
   #
-  # expr_term_op = times(choice([index, splat, get_attr]), min: 1)
   expr_term_op =
     times(
       choice([

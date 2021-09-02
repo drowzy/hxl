@@ -9,12 +9,10 @@ defmodule HCL.Ast.ForExpr do
   ]
 
   @type t :: %__MODULE__{
-    keys: list(),
-    enumerable: term(),
-    enumerable_type: :tuple | :object,
-    body: term(),
-    conditional: term()
-  }
-
+          keys: list(),
+          enumerable: term(),
+          enumerable_type: :tuple | :object,
+          body: term(),
+          conditional: term()
+        }
 end
-
