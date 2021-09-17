@@ -1,15 +1,24 @@
 defmodule HCL.Eval do
-  @moduledoc ~S"""
-  Evaluates the HCL AST into either a partially applied structure or fully-applied
+  @moduledoc """
+  Evaluates the HCL AST into either a partially applied structure or materialized structure
 
   ## Examples
 
+  With assignement:
+
     %HCL.Ast.Body{} = body = HCL.from_binary("a = 1")
     %{"a" => 1} = HCL.Eval.eval(body)
+
+
+  Expressions:
+
+    %HCL.Ast.Body{} = body = HCL.from_binary("a = 1 + 1 + (4 * 2)")
+    %{"a" => 10} = HCL.Eval.eval(body)
   """
 
   alias HCL.Ast.{
     Attr,
+    Binary,
     Block,
     Body,
     Identifier,
@@ -77,6 +86,13 @@ defmodule HCL.Eval do
     {value, ctx} = do_eval(expr, ctx)
 
     {apply(Kernel, op, [value]), ctx}
+  end
+
+  defp do_eval(%Binary{left: left, operator: op, right: right}, ctx) do
+    {left_value, ctx} = do_eval(left, ctx)
+    {right_value, ctx} = do_eval(right, ctx)
+
+    {apply(Kernel, op, [left_value, right_value]), ctx}
   end
 
   defp do_eval(%Literal{value: value}, ctx) do

@@ -60,6 +60,7 @@ defmodule HCL.ParserTest do
         hcl = """
         #{seq} hello_world
         """
+
         {:ok, %Body{statements: [%Comment{}]}} = Parser.parse(hcl)
       end
     end

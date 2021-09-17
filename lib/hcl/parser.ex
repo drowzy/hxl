@@ -417,6 +417,11 @@ defmodule HCL.Parser do
       min: 1
     )
 
+  nested_expr =
+    ignore(open_parens)
+    |> parsec(:expr)
+    |> ignore(close_parens)
+
   expr_term =
     choice([
       parsec(:__literal_value__),
@@ -424,7 +429,8 @@ defmodule HCL.Parser do
       parsec(:__for_expr__),
       parsec(:__template_expr__),
       parsec(:__function_call__),
-      parsec(:__variable_expr__)
+      parsec(:__variable_expr__),
+      nested_expr
     ])
     |> optional(expr_term_op)
     |> tag(:expr_term)
@@ -546,7 +552,8 @@ defmodule HCL.Parser do
         parsec(:__attr__),
         parsec(:__comment__),
         parsec(:__block__)
-      ]) |> ignore(optional(whitespace))
+      ])
+      |> ignore(optional(whitespace))
     )
     |> tag(:body)
     |> post_traverse(:ast_node_from_tokens)

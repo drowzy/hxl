@@ -99,6 +99,26 @@ defmodule HCL.EvalTest do
     assert -a == b
   end
 
+  test "eval/1 binary operation" do
+    hcl = """
+    a = 1 + 1
+    b = a
+    """
+
+    %{"a" => a, "b" => b} = parse_and_eval(hcl)
+
+    assert a == b
+  end
+
+  test "eval/1 multiple binary operations" do
+    hcl = """
+    a = 1 + (2 * 3)
+    """
+
+    assert %{"a" => a} = parse_and_eval(hcl)
+    assert a == 7
+  end
+
   defp parse_and_eval(hcl) do
     %{ctx: ctx} =
       hcl
