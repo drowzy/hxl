@@ -197,6 +197,23 @@ defmodule HCL.Eval do
     {[func], ctx}
   end
 
+  defp eval_op({:full_splat, access_ops}, ctx) do
+    {accs, ctx} =
+      Enum.reduce(access_ops, {[], ctx}, fn op, {acc, ctx} ->
+        {op, ctx} = eval_op(op, ctx)
+
+        {List.flatten([op | acc]), ctx}
+      end)
+
+    func =
+      accs
+      |> Enum.reverse()
+      |> access_map()
+      |> List.wrap()
+
+    {func, ctx}
+  end
+
   defp access_map(ops) do
     fn :get, data, next when is_list(data) ->
       data |> Enum.map(&get_in(&1, ops)) |> Enum.map(next)
