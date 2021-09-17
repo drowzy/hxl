@@ -14,6 +14,12 @@ defmodule HCL.Eval do
 
     %HCL.Ast.Body{} = body = HCL.from_binary("a = 1 + 1 + (4 * 2)")
     %{"a" => 10} = HCL.Eval.eval(body)
+
+  Functions:
+
+     hcl = "a = trim("    a ")"
+     %HCL.Ast.Body{} = body = HCL.from_binary(hcl)
+     %{"a" => "a"} = HCL.Eval.eval(body, functions: %{"trim" => &String.trim/1})
   """
 
   alias HCL.Ast.{
@@ -21,6 +27,8 @@ defmodule HCL.Eval do
     Binary,
     Block,
     Body,
+    Comment,
+    FunctionCall,
     Identifier,
     Literal,
     Object,
@@ -29,7 +37,7 @@ defmodule HCL.Eval do
     Unary
   }
 
-  defstruct ctx: %{}, symbol_table: %{}
+  defstruct [:functions, ctx: %{}, symbol_table: %{}]
 
   @type t :: %__MODULE__{ctx: Map.t()}
 
@@ -37,15 +45,23 @@ defmodule HCL.Eval do
   Evaluates the Ast.
   """
   @spec eval(term(), Keyword.t()) :: {:ok, term()} | {:error, term()}
-  def eval(hcl, _opts \\ []) do
-    do_eval(hcl, %__MODULE__{})
+  def eval(hcl, opts \\ []) do
+    functions = Keyword.get(opts, :functions, %{})
+
+    do_eval(hcl, %__MODULE__{functions: functions})
   end
 
   defp do_eval(%Body{statements: stmts}, ctx) do
     Enum.reduce(stmts, ctx, fn x, acc ->
       case do_eval(x, acc) do
-        {{k, v}, acc} -> %{acc | ctx: Map.put(acc.ctx, k, v)}
-        {map, acc} when is_map(map) -> %{acc | ctx: Map.merge(acc.ctx, map)}
+        {{k, v}, acc} ->
+          %{acc | ctx: Map.put(acc.ctx, k, v)}
+
+        {map, acc} when is_map(map) ->
+          %{acc | ctx: Map.merge(acc.ctx, map)}
+
+        {:ignore, acc} ->
+          acc
       end
     end)
   end
@@ -70,7 +86,8 @@ defmodule HCL.Eval do
       |> scope([])
       |> Enum.reverse()
 
-    block_ctx = do_eval(body, %__MODULE__{symbol_table: ctx.symbol_table})
+    block_ctx =
+      do_eval(body, %__MODULE__{symbol_table: ctx.symbol_table, functions: ctx.functions})
 
     {put_in(ctx.ctx, block_scope, block_ctx.ctx), ctx}
   end
@@ -80,6 +97,10 @@ defmodule HCL.Eval do
 
     st = Map.put(ctx.symbol_table, name, value)
     {{name, value}, %{ctx | symbol_table: st}}
+  end
+
+  defp do_eval(%Comment{}, ctx) do
+    {:ignore, ctx}
   end
 
   defp do_eval(%Unary{expr: expr, operator: op}, ctx) do
@@ -124,6 +145,29 @@ defmodule HCL.Eval do
       state = Map.put(state, k, value)
       {state, ctx}
     end)
+  end
+
+  defp do_eval(%FunctionCall{name: name, arity: arity, args: args}, %{functions: funcs} = ctx) do
+    case Map.get(funcs, name) do
+      nil ->
+        raise ArgumentError,
+          message:
+            "FunctionCalls cannot be used without providing a function with the same arity in #{__MODULE__}.eval/2. Got: #{name}/#{arity}"
+
+      func when not is_function(func, arity) ->
+        raise ArgumentError,
+          message:
+            "FunctionCall arity missmatch Expected: #{name}/#{arity} got: arity=#{:erlang.fun_info(func)[:arity]}"
+
+      func ->
+        {args, ctx} =
+          Enum.reduce(args, {[], ctx}, fn arg, {acc, ctx} ->
+            {eval_arg, ctx} = do_eval(arg, ctx)
+            {[eval_arg | acc], ctx}
+          end)
+
+        {Kernel.apply(func, Enum.reverse(args)), ctx}
+    end
   end
 
   defp ast_value_to_value({:int, int}) do

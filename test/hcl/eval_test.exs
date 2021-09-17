@@ -119,11 +119,61 @@ defmodule HCL.EvalTest do
     assert a == 7
   end
 
-  defp parse_and_eval(hcl) do
+  test "eval/1 ignores comments" do
+    hcl = """
+    # Block comment
+    """
+
+    assert hcl |> parse_and_eval() |> Enum.empty?()
+  end
+
+  test "eval/1 function calls without providing functions should raise" do
+    hcl = """
+    a = trim("   a ")
+    """
+
+    assert_raise ArgumentError, fn ->
+      parse_and_eval(hcl)
+    end
+  end
+
+  test "eval/1 function calls without incorrect arity should raise" do
+    hcl = """
+    a = trim("   a ")
+    """
+
+    assert_raise ArgumentError, fn ->
+      parse_and_eval(hcl, functions: %{"trim" => fn _a, _b -> :ok end})
+    end
+  end
+
+  test "eval/1 with function calls the provided function" do
+    hcl = """
+    a = trim("   a ")
+    """
+
+    assert %{"a" => "a"} = parse_and_eval(hcl, functions: %{"trim" => &String.trim/1})
+  end
+
+  test "eval/1 with function in functions" do
+    hcl = """
+    a = upcase(trim("   a "))
+    """
+
+    assert %{"a" => "A"} =
+             parse_and_eval(hcl,
+               functions: %{
+                 "trim" => &String.trim/1,
+                 "upcase" => &String.capitalize/1
+               }
+             )
+  end
+
+  defp parse_and_eval(hcl, opts \\ []) do
     %{ctx: ctx} =
       hcl
       |> HCL.Parser.parse!()
-      |> HCL.Eval.eval()
+      |> HCL.Eval.eval(opts)
 
     ctx
   end
