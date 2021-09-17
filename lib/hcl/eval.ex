@@ -43,7 +43,7 @@ defmodule HCL.Eval do
   @type t :: %__MODULE__{ctx: Map.t()}
 
   @doc """
-  Evaluates the Ast.
+  Evaluates the Ast by walking the tree recursivly. Each node will be evaluated
   """
   @spec eval(term(), Keyword.t()) :: {:ok, term()} | {:error, term()}
   def eval(hcl, opts \\ []) do
@@ -180,12 +180,27 @@ defmodule HCL.Eval do
 
   defp eval_op({:index_access, index_expr}, ctx) do
     {index, ctx} = do_eval(index_expr, ctx)
+
     {[Access.at(index)], ctx}
   end
 
   defp eval_op({:attr_access, attrs}, ctx) do
     accs = for attr <- attrs, do: Access.key!(attr)
+
     {accs, ctx}
+  end
+
+  defp eval_op({:attr_splat, access_op}, ctx) do
+    {accs, ctx} = eval_op(access_op, ctx)
+    func = access_map(accs)
+
+    {[func], ctx}
+  end
+
+  defp access_map(ops) do
+    fn :get, data, next when is_list(data) ->
+      data |> Enum.map(&get_in(&1, ops)) |> Enum.map(next)
+    end
   end
 
   defp ast_value_to_value({:int, int}) do

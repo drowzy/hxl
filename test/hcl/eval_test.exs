@@ -188,6 +188,15 @@ defmodule HCL.EvalTest do
     assert %{"b" => 1} = parse_and_eval(hcl)
   end
 
+  test "eval/1 with attrs-splat ops" do
+    hcl = """
+    a = [{b = 1}, {b = 2}, {b = 3}]
+    b = a.*.b
+    """
+
+    assert %{"b" => [1, 2, 3]} = parse_and_eval(hcl)
+  end
+
   defp parse_and_eval(hcl, opts \\ []) do
     %{ctx: ctx} =
       hcl
