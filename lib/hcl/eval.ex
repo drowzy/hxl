@@ -23,6 +23,7 @@ defmodule HCL.Eval do
   """
 
   alias HCL.Ast.{
+    AccessOperation,
     Attr,
     Binary,
     Block,
@@ -168,6 +169,23 @@ defmodule HCL.Eval do
 
         {Kernel.apply(func, Enum.reverse(args)), ctx}
     end
+  end
+
+  defp do_eval(%AccessOperation{expr: expr, operation: op}, ctx) do
+    {expr_value, ctx} = do_eval(expr, ctx)
+    {access_fn, ctx} = eval_op(op, ctx)
+
+    {Kernel.get_in(expr_value, access_fn), ctx}
+  end
+
+  defp eval_op({:index_access, index_expr}, ctx) do
+    {index, ctx} = do_eval(index_expr, ctx)
+    {[Access.at(index)], ctx}
+  end
+
+  defp eval_op({:attr_access, attrs}, ctx) do
+    accs = for attr <- attrs, do: Access.key!(attr)
+    {accs, ctx}
   end
 
   defp ast_value_to_value({:int, int}) do

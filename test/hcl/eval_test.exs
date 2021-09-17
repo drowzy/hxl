@@ -169,6 +169,25 @@ defmodule HCL.EvalTest do
              )
   end
 
+  test "eval/1 with index access ops" do
+    hcl = """
+    a = [1, 2, 3]
+    b = a[1]
+    c = a[2]
+    """
+
+    assert %{"b" => 2, "c" => 3} = parse_and_eval(hcl)
+  end
+
+  test "eval/1 with attr access ops" do
+    hcl = """
+    a = { b = { c = 1 } }
+    b = a.b.c
+    """
+
+    assert %{"b" => 1} = parse_and_eval(hcl)
+  end
+
   defp parse_and_eval(hcl, opts \\ []) do
     %{ctx: ctx} =
       hcl
