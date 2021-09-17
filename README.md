@@ -75,7 +75,7 @@ resource "upcloud_server" "server1" {
 ## HCL Syntax Specification
 
 ### Lexical Elements
-- [ ] [Comments](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#comments-and-whitespace)
+- [x] [Comments](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#comments-and-whitespace)
 - [x] [Identifiers](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#identifiers)
 - [ ] [Operators & delimiters](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#operators-and-delimiters)
 - [x] [Numeric literals](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#numeric-literals)
@@ -100,3 +100,7 @@ resource "upcloud_server" "server1" {
     - [x] "(" Expression ")"
   - [x] Operation
   - [ ] Conditional
+
+### Represenations
+ - [ ] HCL Native syntax
+ - [ ] JSON
