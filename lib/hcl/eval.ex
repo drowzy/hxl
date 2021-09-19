@@ -29,6 +29,7 @@ defmodule HCL.Eval do
     Block,
     Body,
     Comment,
+    ForExpr,
     FunctionCall,
     Identifier,
     Literal,
@@ -48,8 +49,9 @@ defmodule HCL.Eval do
   @spec eval(term(), Keyword.t()) :: {:ok, term()} | {:error, term()}
   def eval(hcl, opts \\ []) do
     functions = Keyword.get(opts, :functions, %{})
+    symbol_table = Keyword.get(opts, :variables, %{})
 
-    do_eval(hcl, %__MODULE__{functions: functions})
+    do_eval(hcl, %__MODULE__{functions: functions, symbol_table: symbol_table})
   end
 
   defp do_eval(%Body{statements: stmts}, ctx) do
@@ -171,6 +173,21 @@ defmodule HCL.Eval do
     end
   end
 
+  defp do_eval(
+         %ForExpr{enumerable: enum, enumerable_type: :for_tuple, keys: keys, body: body},
+         ctx
+       ) do
+    {enum, ctx} = do_eval(enum, ctx)
+    {acc, reducer} = closure(keys, body, ctx)
+
+    iterated =
+      enum
+      |> Enum.reduce(acc, reducer)
+      |> elem(0)
+
+    {Enum.reverse(iterated), ctx}
+  end
+
   defp do_eval(%AccessOperation{expr: expr, operation: op}, ctx) do
     {expr_value, ctx} = do_eval(expr, ctx)
     {access_fn, ctx} = eval_op(op, ctx)
@@ -231,5 +248,31 @@ defmodule HCL.Eval do
   def scope([key | rest], acc) do
     acc = [Access.key(key, %{}) | acc]
     scope(rest, acc)
+  end
+
+  defp closure([key], body, ctx) do
+    reducer = fn v, {acc, ctx} ->
+      ctx = %{ctx | symbol_table: Map.put(ctx.symbol_table, key, v)}
+      {value, _} = do_eval(body, ctx)
+      {[value | acc], ctx}
+    end
+
+    {{[], ctx}, reducer}
+  end
+
+  defp closure([index, value], body, ctx) do
+    reducer = fn v, {acc, i, ctx} ->
+      st =
+        ctx.symbol_table
+        |> Map.put(index, i)
+        |> Map.put(value, v)
+
+      ctx = %{ctx | symbol_table: st}
+      {value, _} = do_eval(body, ctx)
+
+      {[value | acc], i + 1, ctx}
+    end
+
+    {{[], 0, ctx}, reducer}
   end
 end

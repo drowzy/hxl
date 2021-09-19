@@ -215,6 +215,17 @@ defmodule HCL.EvalTest do
     assert %{"b" => [1, 2, 3]} = parse_and_eval(hcl)
   end
 
+  test "eval/1 tuple for-expr" do
+    hcl = """
+    a = [for v in ["a", "b"]: v]
+    b = [for i, v in ["a", "b"]: i]
+    """
+
+    assert %{"a" => a, "b" => b} = parse_and_eval(hcl)
+    assert a == ["a", "b"]
+    assert b == [0, 1]
+  end
+
   defp parse_and_eval(hcl, opts \\ []) do
     %{ctx: ctx} =
       hcl
