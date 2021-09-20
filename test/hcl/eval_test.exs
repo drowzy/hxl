@@ -246,11 +246,11 @@ defmodule HCL.EvalTest do
   end
 
   defp parse_and_eval(hcl, opts \\ []) do
-    %{ctx: ctx} =
+    %{document: doc} =
       hcl
       |> HCL.Parser.parse!()
       |> HCL.Eval.eval(opts)
 
-    ctx
+    doc
   end
 end

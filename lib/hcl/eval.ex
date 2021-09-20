@@ -39,14 +39,14 @@ defmodule HCL.Eval do
     Unary
   }
 
-  defstruct [:functions, ctx: %{}, symbol_table: %{}]
+  defstruct [:functions, document: %{}, symbol_table: %{}]
 
-  @type t :: %__MODULE__{ctx: Map.t()}
+  @type t :: %__MODULE__{document: map(), functions: map(), symbol_table: map()}
 
   @doc """
   Evaluates the Ast by walking the tree recursivly. Each node will be evaluated
   """
-  @spec eval(term(), Keyword.t()) :: {:ok, term()} | {:error, term()}
+  @spec eval(term(), Keyword.t()) :: t()
   def eval(hcl, opts \\ []) do
     functions = Keyword.get(opts, :functions, %{})
     symbol_table = Keyword.get(opts, :variables, %{})
@@ -58,10 +58,10 @@ defmodule HCL.Eval do
     Enum.reduce(stmts, ctx, fn x, acc ->
       case do_eval(x, acc) do
         {{k, v}, acc} ->
-          %{acc | ctx: Map.put(acc.ctx, k, v)}
+          %{acc | document: Map.put(acc.document, k, v)}
 
         {map, acc} when is_map(map) ->
-          %{acc | ctx: Map.merge(acc.ctx, map)}
+          %{acc | document: Map.merge(acc.document, map)}
 
         {:ignore, acc} ->
           acc
@@ -92,7 +92,7 @@ defmodule HCL.Eval do
     block_ctx =
       do_eval(body, %__MODULE__{symbol_table: ctx.symbol_table, functions: ctx.functions})
 
-    {put_in(ctx.ctx, block_scope, block_ctx.ctx), ctx}
+    {put_in(ctx.document, block_scope, block_ctx.document), ctx}
   end
 
   defp do_eval(%Attr{name: name, expr: expr}, ctx) do
