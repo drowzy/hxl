@@ -8,5 +8,5 @@ defmodule HCL.Ast do
           | HCL.Ast.FunctionCall.t()
           | HCL.Ast.Identifier.t()
 
-  @type t :: HCL.Body.t()
+  @type t :: HCL.Ast.Body.t()
 end
