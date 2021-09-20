@@ -174,11 +174,17 @@ defmodule HCL.Eval do
   end
 
   defp do_eval(
-         %ForExpr{enumerable: enum, enumerable_type: :for_tuple, keys: keys, body: body},
+         %ForExpr{
+           enumerable: enum,
+           conditional: conditional,
+           enumerable_type: :for_tuple,
+           keys: keys,
+           body: body
+         },
          ctx
        ) do
     {enum, ctx} = do_eval(enum, ctx)
-    {acc, reducer} = closure(keys, body, ctx)
+    {acc, reducer} = closure(keys, conditional, body, ctx)
 
     iterated =
       enum
@@ -250,17 +256,39 @@ defmodule HCL.Eval do
     scope(rest, acc)
   end
 
-  defp closure([key], body, ctx) do
+  defp closure([key], conditional, body, ctx) do
+    conditional_fn = closure_cond(conditional)
+
     reducer = fn v, {acc, ctx} ->
       ctx = %{ctx | symbol_table: Map.put(ctx.symbol_table, key, v)}
-      {value, _} = do_eval(body, ctx)
-      {[value | acc], ctx}
+
+      acc =
+        if conditional_fn.(ctx) do
+          {value, _} = do_eval(body, ctx)
+          [value | acc]
+        else
+          acc
+        end
+
+      {acc, ctx}
     end
 
     {{[], ctx}, reducer}
   end
 
-  defp closure([index, value], body, ctx) do
+  # defp closure([key], body, ctx) do
+  #   reducer = fn v, {acc, ctx} ->
+  #     ctx = %{ctx | symbol_table: Map.put(ctx.symbol_table, key, v)}
+  #     {value, _} = do_eval(body, ctx)
+  #     {[value | acc], ctx}
+  #   end
+
+  #   {{[], ctx}, reducer}
+  # end
+
+  defp closure([index, value], conditional, body, ctx) do
+    conditional_fn = closure_cond(conditional)
+
     reducer = fn v, {acc, i, ctx} ->
       st =
         ctx.symbol_table
@@ -268,11 +296,28 @@ defmodule HCL.Eval do
         |> Map.put(value, v)
 
       ctx = %{ctx | symbol_table: st}
-      {value, _} = do_eval(body, ctx)
 
-      {[value | acc], i + 1, ctx}
+      acc =
+        if conditional_fn.(ctx) do
+          {value, _} = do_eval(body, ctx)
+          [value | acc]
+        else
+          acc
+        end
+
+      {acc, i + 1, ctx}
     end
 
     {{[], 0, ctx}, reducer}
+  end
+
+  defp closure_cond(nil), do: fn _ctx -> true end
+
+  defp closure_cond(expr) do
+    fn ctx ->
+      expr
+      |> do_eval(ctx)
+      |> elem(0)
+    end
   end
 end

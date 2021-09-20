@@ -272,7 +272,7 @@ defmodule HCL.Parser do
 
   # ### for Expression
 
-  for_cond = string("if") |> ignore(whitespace) |> parsec(:expr)
+  for_cond = ignore(string("if")) |> ignore(whitespace) |> parsec(:expr)
 
   for_identifier =
     identifier
@@ -724,7 +724,7 @@ defmodule HCL.Parser do
     {enum, body, nil}
   end
 
-  defp post_process_for_body(:for_tuple, [enum, body | conditional]) do
+  defp post_process_for_body(:for_tuple, [enum, body, conditional]) do
     {enum, body, conditional}
   end
 
@@ -732,7 +732,7 @@ defmodule HCL.Parser do
     {enum, {key_expr, value_expr}, nil}
   end
 
-  defp post_process_for_body(:for_object, [enum, key_expr, value_expr | conditional]) do
+  defp post_process_for_body(:for_object, [enum, key_expr, value_expr, conditional]) do
     {enum, {key_expr, value_expr}, conditional}
   end
 

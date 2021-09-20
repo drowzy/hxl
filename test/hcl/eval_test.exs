@@ -219,11 +219,15 @@ defmodule HCL.EvalTest do
     hcl = """
     a = [for v in ["a", "b"]: v]
     b = [for i, v in ["a", "b"]: i]
+    c = [for i, v in ["a", "b", "c"]: v if i < 2]
+    d = [for i, v in ["a", "b", "c"]: v if i == 0]
     """
 
-    assert %{"a" => a, "b" => b} = parse_and_eval(hcl)
+    assert %{"a" => a, "b" => b, "c" => c, "d" => d} = parse_and_eval(hcl)
     assert a == ["a", "b"]
     assert b == [0, 1]
+    assert c == ["a", "b"]
+    assert d == ["a"]
   end
 
   defp parse_and_eval(hcl, opts \\ []) do
