@@ -573,31 +573,28 @@ defmodule HCL.Parser do
   defcombinatorp(:body, body)
 
   @spec parse(binary()) ::
-          {:ok, HCL.Ast.Body.t()}
-          | {:error, binary(), {pos_integer(), pos_integer()}, pos_integer()}
+          {:ok, HCL.Ast.t()}
+          | {:error, any(), binary(), map(), {pos_integer(), pos_integer()}, pos_integer()}
   def parse(input) do
-    case do_parse(input) do
-      {:ok, [ast], "", _, _, _} ->
-        {:ok, ast}
-
-      {:ok, _parsed, rest, _ctx, {line, line_offset}, byte_offset} ->
-        {:error, rest, {line, line_offset}, byte_offset}
-
-      err ->
-        err
+    with {:ok, [ast], "", _, _, _} <- do_parse(input) do
+      {:ok, ast}
     end
   end
 
   @spec parse!(binary()) :: HCL.Ast.Body.t()
   def parse!(input) do
     case parse(input) do
-      {:ok, body} -> body
-      _ -> raise "parser err"
+      {:ok, body} ->
+        body
+
+      {:error, reason, rest, _ctx, {line, line_offset}, _} ->
+        raise "err #{inspect(reason)} rest=#{rest} line: #{inspect(line)} offset=#{line_offset}"
     end
   end
 
   @spec do_parse(binary()) ::
-          {:ok, [term()], binary(), map(), {pos_integer(), pos_integer()}, pos_integer()}
+          {:ok, list(term()), binary(), map(), {pos_integer(), pos_integer()}, pos_integer()}
+          | {:error, binary(), binary(), map, {pos_integer(), pos_integer()}, pos_integer()}
   defparsec(:do_parse, parsec(:body) |> ignore(optional(whitespace)) |> eos())
 
   defp ast_node_from_tokens(_rest, [literal: literal], ctx, _line, _offset) do
