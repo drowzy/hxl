@@ -230,6 +230,21 @@ defmodule HCL.EvalTest do
     assert d == ["a"]
   end
 
+  test "eval/1 object for-expr" do
+    hcl = """
+    a = {for i, v in ["a", "b"]: v => i}
+    b = {for i, v in ["a", "b"]: v => i if i == 0}
+    c = {for i, v in ["a", "b"]: v => upcase(v)}
+    """
+
+    assert %{"a" => a, "b" => b, "c" => c} =
+             parse_and_eval(hcl, functions: %{"upcase" => &String.capitalize/1})
+
+    assert a == %{"a" => 0, "b" => 1}
+    assert b == %{"a" => 0}
+    assert c == %{"a" => "A", "b" => "B"}
+  end
+
   defp parse_and_eval(hcl, opts \\ []) do
     %{ctx: ctx} =
       hcl

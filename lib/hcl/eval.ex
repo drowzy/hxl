@@ -177,7 +177,7 @@ defmodule HCL.Eval do
          %ForExpr{
            enumerable: enum,
            conditional: conditional,
-           enumerable_type: :for_tuple,
+           enumerable_type: e_t,
            keys: keys,
            body: body
          },
@@ -186,12 +186,20 @@ defmodule HCL.Eval do
     {enum, ctx} = do_eval(enum, ctx)
     {acc, reducer} = closure(keys, conditional, body, ctx)
 
+    for_into =
+      case e_t do
+        :for_tuple -> &Function.identity/1
+        :for_object -> &Enum.into(&1, %{})
+      end
+
     iterated =
       enum
       |> Enum.reduce(acc, reducer)
       |> elem(0)
+      |> Enum.reverse()
+      |> for_into.()
 
-    {Enum.reverse(iterated), ctx}
+    {iterated, ctx}
   end
 
   defp do_eval(%AccessOperation{expr: expr, operation: op}, ctx) do
@@ -199,6 +207,13 @@ defmodule HCL.Eval do
     {access_fn, ctx} = eval_op(op, ctx)
 
     {Kernel.get_in(expr_value, access_fn), ctx}
+  end
+
+  defp do_eval({k, v}, ctx) do
+    {k_value, ctx} = do_eval(k, ctx)
+    {v_value, ctx} = do_eval(v, ctx)
+
+    {{k_value, v_value}, ctx}
   end
 
   defp eval_op({:index_access, index_expr}, ctx) do
@@ -275,16 +290,6 @@ defmodule HCL.Eval do
 
     {{[], ctx}, reducer}
   end
-
-  # defp closure([key], body, ctx) do
-  #   reducer = fn v, {acc, ctx} ->
-  #     ctx = %{ctx | symbol_table: Map.put(ctx.symbol_table, key, v)}
-  #     {value, _} = do_eval(body, ctx)
-  #     {[value | acc], ctx}
-  #   end
-
-  #   {{[], ctx}, reducer}
-  # end
 
   defp closure([index, value], conditional, body, ctx) do
     conditional_fn = closure_cond(conditional)
