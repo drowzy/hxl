@@ -25,3 +25,6 @@ hcl-*.tar
 
 # Temporary files for e.g. tests
 /tmp
+
+# Generated files
+src/hcl_parser.erl

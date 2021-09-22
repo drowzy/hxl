@@ -55,5 +55,3 @@ defmodule HCL.Parser.BinaryExprTest do
     Parser.parse(tokens)
   end
 end
-
-# HCL.Lexer.tokenize("a = 1 + 1")
