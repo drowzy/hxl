@@ -8,6 +8,11 @@ BinaryOp
 Collection
 ConfigFile
 Expr
+For
+ForCond
+ForIds
+ForId
+ForIntro
 Literal
 UnaryOp
 .
@@ -37,10 +42,14 @@ Terminals
 '%'
 '&&'
 '||'
-identifier
-int
-decimal
+'=>'
 bool
+decimal
+for
+identifier
+in
+'if'
+int
 null
 
 .
@@ -53,9 +62,11 @@ Attr -> identifier '=' Expr : build_ast_node('Attr', #{name => extract_value('$1
 %
 % Expr
 %
+Expr -> identifier         : build_ast_node('Identifier', #{name => unwrap_value(extract_value('$1'))}).
+Expr -> For                : '$1'.
 Expr -> Literal            : build_ast_node('Literal', #{value => '$1'}).
 Expr -> Collection         : '$1'.
-Expr -> UnaryOp Expr : build_ast_node('Unary', #{operator => extract_token('$1'), expr => '$2'}).
+Expr -> UnaryOp Expr       : build_ast_node('Unary', #{operator => extract_token('$1'), expr => '$2'}).
 Expr -> Expr BinaryOp Expr : build_ast_node('Binary', #{left => '$1', operator => extract_token('$2'), right => '$3'}).
 
 %
@@ -70,11 +81,28 @@ Collection -> '{' Args '}' : build_ast_node('Object', #{kvs => maps:from_list('$
 Args -> Arg ',' Args : ['$1' | '$3'].
 Args -> Arg : ['$1'].
 Args -> '$empty' : [].
+
 Arg -> identifier Assign Expr : {unwrap_value(extract_value('$1')), '$3'}.
 Arg -> Expr : '$1'.
 
 Assign -> '=' : '$1'.
 Assign -> ':' : '$1'.
+%
+% For
+%
+
+For -> '[' ForIntro Expr ForCond ']' : build_ast_node('ForExpr', maps:merge('$2', #{body => '$3', conditional => '$4', enumerable_type => for_tuple})).
+For -> '{' ForIntro Expr '=>' Expr ForCond '}' : build_ast_node('ForExpr', maps:merge('$2', #{body => {'$3', '$5'}, conditional => '$6', enumerable_type => for_object})).
+
+ForIntro -> for ForIds in Expr ':' : #{keys => '$2', enumerable => '$4'}.
+
+ForIds -> ForId ',' ForIds : ['$1' | '$3'].
+ForIds -> ForId : ['$1'].
+
+ForId -> identifier : unwrap_value(extract_value('$1')).
+
+ForCond -> 'if' Expr : '$2'.
+ForCond -> '$empty' : nil.
 
 %
 % Unary
