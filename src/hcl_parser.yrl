@@ -62,12 +62,13 @@ Attr -> identifier '=' Expr : build_ast_node('Attr', #{name => extract_value('$1
 %
 % Expr
 %
-Expr -> identifier         : build_ast_node('Identifier', #{name => unwrap_value(extract_value('$1'))}).
-Expr -> For                : '$1'.
-Expr -> Literal            : build_ast_node('Literal', #{value => '$1'}).
-Expr -> Collection         : '$1'.
-Expr -> UnaryOp Expr       : build_ast_node('Unary', #{operator => extract_token('$1'), expr => '$2'}).
-Expr -> Expr BinaryOp Expr : build_ast_node('Binary', #{left => '$1', operator => extract_token('$2'), right => '$3'}).
+Expr -> identifier '(' Args ')' : build_ast_node('FunctionCall', #{name => unwrap_value(extract_value('$1')), arity => length('$3'), args => '$3'}).
+Expr -> identifier              : build_ast_node('Identifier', #{name => unwrap_value(extract_value('$1'))}).
+Expr -> For                     : '$1'.
+Expr -> Literal                 : build_ast_node('Literal', #{value => '$1'}).
+Expr -> Collection              : '$1'.
+Expr -> UnaryOp Expr            : build_ast_node('Unary', #{operator => extract_token('$1'), expr => '$2'}).
+Expr -> Expr BinaryOp Expr      : build_ast_node('Binary', #{left => '$1', operator => extract_token('$2'), right => '$3'}).
 
 %
 % Collection

@@ -37,6 +37,12 @@ defmodule HCL.Lexer do
         string(">="),
         string("=>")
       ]),
+      # Keywords
+      choice([
+        string("for"),
+        string("if"),
+        string("in")
+      ]),
       ascii_char([
         ?=,
         ?!,
