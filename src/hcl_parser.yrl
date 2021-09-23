@@ -58,8 +58,8 @@ Terminals
 '&&'
 '||'
 '=>'
-bool
 decimal
+false
 for
 heredoc
 identifier
@@ -69,6 +69,7 @@ int
 null
 string
 text
+true
 
 .
 
@@ -203,8 +204,9 @@ BinaryOp -> '||' : '$1'.
 %
 Literal -> int     : extract_token_value('$1').
 Literal -> decimal : {extract_token('$1'), element(1, string:to_float(extract_value('$1')))}.
-Literal -> bool    : extract_token_value('$1').
-Literal -> null    : {extract_token('$1'), nil}.
+Literal -> true    : {bool, true}.
+Literal -> false   : {bool, false}.
+Literal -> null    : {null, nil}.
 
 Erlang code.
 

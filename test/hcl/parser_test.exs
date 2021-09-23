@@ -37,7 +37,7 @@ defmodule HCL.ParserTest do
       }
       """
 
-      {:ok, []} = parse(hcl)
+      assert {:ok, %Body{}} = parse(hcl)
     end
 
     test "can parse comments" do

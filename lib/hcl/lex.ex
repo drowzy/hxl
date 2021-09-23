@@ -8,25 +8,25 @@ defmodule HCL.Lexer do
 
   # Boolean :: true | false
   #
-  bool =
-    choice([
-      string("true") |> replace(true),
-      string("false") |> replace(false)
-    ])
-    |> post_traverse({:labeled_token, [:bool]})
+  # bool =
+  #   choice([
+  #     string("true") |> replace(true),
+  #     string("false") |> replace(false)
+  #   ])
+  #   |> post_traverse({:labeled_token, [:bool]})
 
-  # Null
-  #
-  null = string("null") |> replace(:null) |> post_traverse({:labeled_token, [:null]})
+  # # Null
+  # #
+  # null = string("null") |> replace(:null) |> post_traverse({:labeled_token, [:null]})
 
   #
   # Reserved
   #
-  reserved = choice([bool, null])
+  # reserved = choice([bool, null])
 
   ignoreed = ignore(whitespace)
 
-  punctuator =
+  operators_delimiters_keywords =
     choice([
       choice([
         string("&&"),
@@ -39,6 +39,9 @@ defmodule HCL.Lexer do
       ]),
       # Keywords
       choice([
+        string("null"),
+        string("true"),
+        string("false"),
         string("for"),
         string("if"),
         string("in")
@@ -166,10 +169,9 @@ defmodule HCL.Lexer do
       choice([
         string_lit,
         ignoreed,
-        reserved,
         string_lit,
         heredoc,
-        punctuator,
+        operators_delimiters_keywords,
         identifier,
         decimal_value,
         int
