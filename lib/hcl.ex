@@ -84,6 +84,15 @@ defmodule HCL do
   @doc """
   Decode a binary to a  `HCL` document AST.
 
+  ## Examples
+
+      iex> HCL.decode_as_ast("a = 1")
+      {:ok, %HCL.Ast.Body{
+        statements: [
+          %HCL.Ast.Attr{
+            expr: %HCL.Ast.Literal{value: {:int, 1}}, name: "a"}
+        ]
+      }}
   """
   @spec decode_as_ast(binary()) :: {:ok, HCL.Ast.t()} | {:error, term()}
   defdelegate decode_as_ast(binary), to: __MODULE__.Parser, as: :parse

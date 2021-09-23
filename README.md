@@ -18,8 +18,13 @@ def deps do
   ]
 end
 ```
+## Features
 
-## Usage
+* Decode from string or file
+* Aims to be fully compliant with the [HCL](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md) specification
+* Function & Variables support during evaluation
+
+## Example Usage
 
 ```elixir
 hcl = """
@@ -63,14 +68,15 @@ resource "upcloud_server" "server1" {
 }
 """
 
-{:ok, %HCL.Ast.Body{}} = HCL.from_binary(hcl)
+{:ok, config_file} = HCL.decode(hcl, functions: %{"file" => &File.read/1})
 ```
 
 ### From file
 
 ```elixir
-{:ok, %HCL.Ast.Body{}} = HCL.from_file("/path/to/file")
+{:ok, config_file} = HCL.decode_file("/path/to/file")
 ```
+### As ast
 
 ## HCL Syntax Specification
 
@@ -99,7 +105,7 @@ resource "upcloud_server" "server1" {
     - [x] ExprTerm Splat
     - [x] "(" Expression ")"
   - [x] Operation
-  - [ ] Conditional
+  - [x] Conditional
 
 ### Represenations
  - [ ] HCL Native syntax
