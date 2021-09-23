@@ -7,8 +7,12 @@ Assign
 Attr
 AttrSplat
 BinaryOp
+Block
+Body
 Collection
 ConfigFile
+Definition
+Definitions
 Expr
 For
 ForCond
@@ -19,6 +23,8 @@ FullSplat
 GetAttr
 Index
 Literal
+Label
+Labels
 Splat
 Template
 Texts
@@ -68,9 +74,35 @@ text
 
 Rootsymbol ConfigFile.
 
-ConfigFile -> Attr : '$1'.
+ConfigFile -> Body : build_ast_node('Body', #{statements => '$1'}).
+%% ConfigFile -> Attr : '$1'.
+
+%
+% Body
+%
+Body -> Definitions : '$1'.
+Definitions -> Definition Definitions : ['$1' | '$2'].
+Definitions -> '$empty' : [] .
+Definition -> Attr : '$1'.
+Definition -> Block : '$1'.
+%
+% Block
+%
+
+Block -> identifier Labels '{' ConfigFile '}': build_ast_node('Block', #{type => unwrap_value(extract_value('$1')), labels => '$2', body => '$4' }).
+Block -> identifier '{' Attr '}': build_ast_node('Block', #{type => unwrap_value(extract_value('$1')), labels => [], body => '$3'}).
+
+Labels -> Label : ['$1'].
+Labels -> Label Labels : ['$1' | '$2'].
+
+Label -> identifier : unwrap_value(extract_value('$1')).
+Label -> string : unwrap_value(extract_value('$1')).
+%
+% Attr
+%
 
 Attr -> identifier '=' Expr : build_ast_node('Attr', #{name => extract_value('$1'), expr => '$3'}).
+
 %
 % Expr
 %
