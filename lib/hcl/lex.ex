@@ -49,6 +49,7 @@ defmodule HCL.Lexer do
       ascii_char([
         ?=,
         ?!,
+        ??,
         ?+,
         ?-,
         ?*,
