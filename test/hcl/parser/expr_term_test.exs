@@ -1,62 +1,95 @@
 defmodule HCL.Parser.ExprTermTest do
   use ExUnit.Case
-  alias HCL.Ast.{AccessOperation, Tuple, Identifier, Literal}
+
+  alias :hcl_parser, as: Parser
+  alias HCL.Lexer
+  alias HCL.Ast.{Attr, AccessOperation, Tuple, Identifier}
 
   test "can parse Expr with index access" do
     assert {:ok,
-            [
-              %AccessOperation{
-                operation: {:index_access, _},
+            %Attr{
+              expr: %AccessOperation{
+                operation: :index_access,
+                key: _key,
                 expr: %Tuple{}
               }
-            ], _, _, _, _} = HCL.Parser.parse_expr("[1,2,3][1]")
+            }} = parse("a = [1,2,3][1]")
   end
 
   test "can parse Expr with get attr operations" do
     assert {:ok,
-            [
-              %AccessOperation{
-                operation: {:attr_access, ["b", "c"]},
-                expr: %Identifier{name: "a"}
+            %Attr{
+              expr: %AccessOperation{
+                operation: :attr_access,
+                key: "c",
+                expr: %AccessOperation{
+                  expr: %Identifier{name: "a"},
+                  operation: :attr_access,
+                  key: "b"
+                }
               }
-            ], _, _, _, _} = HCL.Parser.parse_expr("a.b.c")
+            }} = parse("a = a.b.c")
   end
 
   test "can parse Expr with attr splat operations" do
     assert {:ok,
-            [
-              %AccessOperation{
-                expr: %Identifier{name: "a"},
-                operation: {:attr_splat, {:attr_access, ["b", "c"]}}
+            %Attr{
+              expr: %AccessOperation{
+                operation: :attr_access,
+                key: "b",
+                expr: %AccessOperation{
+                  expr: %Identifier{name: "a"},
+                  operation: :attr_splat,
+                  key: "*"
+                }
               }
-            ], _, _, _, _} = HCL.Parser.parse_expr("a.*.b.c")
+            }} = parse("a = a.*.b")
   end
 
   test "can parse Expr with multiple splat operations" do
     assert {:ok,
-            [
-              %AccessOperation{
+            %Attr{
+              expr: %AccessOperation{
                 expr: %AccessOperation{
-                  expr: %Identifier{name: "a"},
-                  operation: {:attr_splat, {:attr_access, ["b", "c"]}}
+                  expr: %AccessOperation{
+                    expr: %AccessOperation{
+                      expr: %Identifier{name: "a"},
+                      key: "*",
+                      operation: :attr_splat
+                    },
+                    key: "b",
+                    operation: :attr_access
+                  },
+                  key: "c",
+                  operation: :attr_access
                 },
-                operation: {:index_access, %Literal{value: {:int, 1}}}
+                key: %HCL.Ast.Literal{value: {:int, 1}},
+                operation: :index_access
               }
-            ], _, _, _, _} = HCL.Parser.parse_expr("a.*.b.c[1]")
+            }} = parse("a = a.*.b.c[1]")
   end
 
   test "can parse Expr with full splat operations" do
     assert {:ok,
-            [
-              %AccessOperation{
-                expr: %Identifier{name: "a"},
-                operation:
-                  {:full_splat,
-                   [
-                     {:attr_access, ["b", "c"]},
-                     {:index_access, %Literal{value: {:int, 1}}}
-                   ]}
+            %HCL.Ast.Attr{
+              expr: %HCL.Ast.AccessOperation{
+                expr: %HCL.Ast.AccessOperation{
+                  expr: %HCL.Ast.AccessOperation{
+                    expr: %HCL.Ast.Identifier{name: "a"},
+                    key: "*",
+                    operation: :full_splat
+                  },
+                  key: "c",
+                  operation: :attr_access
+                },
+                key: %HCL.Ast.Literal{value: {:int, 1}},
+                operation: :index_access
               }
-            ], _, _, _, _} = HCL.Parser.parse_expr("a[*].b.c[1]")
+            }} = parse("a = a[*].b.c[1]")
+  end
+
+  defp parse(str) do
+    {:ok, tokens, _, _, _, _} = Lexer.tokenize(str)
+    Parser.parse(tokens)
   end
 end

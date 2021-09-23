@@ -27,12 +27,13 @@ defmodule HCL.Parser.CollectionValueTest do
   end
 
   test "parses tuples of different types " do
-    {:ok, %Attr{expr: %Tuple{values: values}}} = parse("a = [1, true, null]")
+    {:ok, %Attr{expr: %Tuple{values: values}}} = parse("a = [1, true, null, \"string\"]")
 
     assert values == [
              %Literal{value: {:int, 1}},
              %Literal{value: {:bool, true}},
-             %Literal{value: {:null, nil}}
+             %Literal{value: {:null, nil}},
+             %TemplateExpr{lines: ["string"]}
            ]
   end
 

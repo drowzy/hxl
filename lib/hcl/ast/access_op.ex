@@ -1,8 +1,9 @@
 defmodule HCL.Ast.AccessOperation do
-  defstruct [:operation, :expr]
+  defstruct [:operation, :expr, :key]
 
   @type t :: %__MODULE__{
           operation: term(),
-          expr: term()
+          expr: term(),
+          key: term()
         }
 end

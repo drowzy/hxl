@@ -1,9 +1,11 @@
 Nonterminals
 
+Access
 Arg
 Args
 Assign
 Attr
+AttrSplat
 BinaryOp
 Collection
 ConfigFile
@@ -13,7 +15,11 @@ ForCond
 ForIds
 ForId
 ForIntro
+FullSplat
+GetAttr
+Index
 Literal
+Splat
 Template
 Texts
 Text
@@ -76,6 +82,25 @@ Expr -> Literal                 : build_ast_node('Literal', #{value => '$1'}).
 Expr -> Collection              : '$1'.
 Expr -> UnaryOp Expr            : build_ast_node('Unary', #{operator => extract_token('$1'), expr => '$2'}).
 Expr -> Expr BinaryOp Expr      : build_ast_node('Binary', #{left => '$1', operator => extract_token('$2'), right => '$3'}).
+Expr -> Expr Access : build_ast_node('AccessOperation', #{expr => '$1', operation => element(1, '$2'), key => element(2, '$2')}).
+
+%
+% Access
+%
+Access -> Index   : '$1' .
+Access -> GetAttr : '$1' .
+Access -> Splat   : '$1' .
+
+Index -> '[' Arg ']' : {index_access, '$2'}.
+GetAttr -> '.' identifier : {attr_access, unwrap_value(extract_value('$2'))}.
+
+%
+% Splat
+%
+Splat -> AttrSplat : '$1'.
+Splat -> FullSplat : '$1'.
+AttrSplat -> '.' '*' : {attr_splat, <<"*">>}.
+FullSplat -> '[' '*' ']' Access : {full_splat, <<"*">>}.
 
 %
 % Template
