@@ -116,6 +116,7 @@ Expr -> Collection              : '$1'.
 Expr -> UnaryOp Expr            : build_ast_node('Unary', #{operator => extract_token('$1'), expr => '$2'}).
 Expr -> Expr BinaryOp Expr      : build_ast_node('Binary', #{left => '$1', operator => extract_token('$2'), right => '$3'}).
 Expr -> Expr Access : build_ast_node('AccessOperation', #{expr => '$1', operation => element(1, '$2'), key => element(2, '$2')}).
+Expr -> '(' Expr ')': '$2'.
 
 %
 % Access
