@@ -14,6 +14,9 @@ ForIds
 ForId
 ForIntro
 Literal
+Template
+Texts
+Text
 UnaryOp
 .
 
@@ -46,11 +49,13 @@ Terminals
 bool
 decimal
 for
+heredoc
 identifier
 in
 'if'
 int
 null
+text
 
 .
 
@@ -62,6 +67,7 @@ Attr -> identifier '=' Expr : build_ast_node('Attr', #{name => extract_value('$1
 %
 % Expr
 %
+Expr -> Template                : build_ast_node('TemplateExpr', '$1').
 Expr -> identifier '(' Args ')' : build_ast_node('FunctionCall', #{name => unwrap_value(extract_value('$1')), arity => length('$3'), args => '$3'}).
 Expr -> identifier              : build_ast_node('Identifier', #{name => unwrap_value(extract_value('$1'))}).
 Expr -> For                     : '$1'.
@@ -70,6 +76,15 @@ Expr -> Collection              : '$1'.
 Expr -> UnaryOp Expr            : build_ast_node('Unary', #{operator => extract_token('$1'), expr => '$2'}).
 Expr -> Expr BinaryOp Expr      : build_ast_node('Binary', #{left => '$1', operator => extract_token('$2'), right => '$3'}).
 
+%
+% Template
+%
+Template -> heredoc identifier Texts identifier : #{delimiter => unwrap_value(extract_value('$2')), lines => '$3'}.
+
+Texts -> Text Texts : ['$1' | '$2'].
+Texts -> Text : ['$1'].
+
+Text -> text : unwrap_value(extract_value('$1')).
 %
 % Collection
 %
@@ -91,7 +106,6 @@ Assign -> ':' : '$1'.
 %
 % For
 %
-
 For -> '[' ForIntro Expr ForCond ']' : build_ast_node('ForExpr', maps:merge('$2', #{body => '$3', conditional => '$4', enumerable_type => for_tuple})).
 For -> '{' ForIntro Expr '=>' Expr ForCond '}' : build_ast_node('ForExpr', maps:merge('$2', #{body => {'$3', '$5'}, conditional => '$6', enumerable_type => for_object})).
 

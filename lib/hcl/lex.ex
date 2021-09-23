@@ -117,12 +117,58 @@ defmodule HCL.Lexer do
     ascii_string([?a..?z, ?A..?Z, ?-, ?_], min: 1)
     |> post_traverse({:labeled_token, [:identifier]})
 
+  #
+  # Templates
+  #
+  string_lit =
+    ignore(ascii_char([?"]))
+    |> repeat(
+      lookahead_not(ascii_char([?"]))
+      |> choice([
+        ~S(\") |> string() |> replace(?"),
+        utf8_char([])
+      ])
+    )
+    |> ignore(ascii_char([?"]))
+    |> reduce({List, :to_string, []})
+    |> post_traverse({:labeled_token, [:string]})
+
+  text_line =
+    utf8_string([not: ?\n], min: 1)
+    |> ignore(string("\n"))
+
+  heredoc =
+    choice([ignore(string("<<-")), ignore(string("<<"))])
+    |> concat(identifier)
+    |> ignore(whitespace)
+    |> repeat(text_line)
+    |> optional(ignore(whitespace))
+    |> post_traverse({:tag_heredoc_terminator, []})
+
+  defp tag_heredoc_terminator(_rest, [close_id | content], ctx, loc, byte_offset) do
+    content =
+      content
+      |> Enum.map(&tag_text/1)
+      |> Enum.reverse()
+
+    content = [{:heredoc, {0, 0}} | content]
+
+    {[{:identifier, line_and_column(loc, byte_offset, 1), [close_id]} | Enum.reverse(content)],
+     ctx}
+  end
+
+  defp tag_text(text) when is_binary(text), do: {:text, {-1, -1}, [text]}
+  defp tag_text(tag), do: tag
+
   defparsec(
     :tokenize,
     repeat(
       choice([
+        string_lit,
         ignoreed,
         reserved,
+        string_lit,
+        heredoc,
         punctuator,
         identifier,
         decimal_value,
