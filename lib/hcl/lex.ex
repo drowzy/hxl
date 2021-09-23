@@ -104,6 +104,18 @@ defmodule HCL.Lexer do
     |> post_traverse({:labeled_token, [:identifier]})
 
   #
+  # LineComment
+  #
+  line_comment =
+    choice([
+      ignore(string("//")),
+      ignore(string("#"))
+    ])
+    |> optional(ignore(whitespace))
+    |> utf8_string([not: ?\n], min: 1)
+    |> ignore(ascii_char([?\n]))
+    |> post_traverse({:labeled_token, [:line_comment]})
+  #
   # Templates
   #
   string_lit =
@@ -150,6 +162,7 @@ defmodule HCL.Lexer do
     :tokenize,
     repeat(
       choice([
+        line_comment,
         string_lit,
         ignoreed,
         string_lit,

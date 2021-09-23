@@ -10,6 +10,7 @@ BinaryOp
 Block
 Body
 Collection
+Comment
 ConfigFile
 Definition
 Definitions
@@ -67,6 +68,7 @@ identifier
 in
 'if'
 int
+line_comment
 null
 string
 text
@@ -87,6 +89,8 @@ Definitions -> Definition Definitions : ['$1' | '$2'].
 Definitions -> '$empty' : [] .
 Definition -> Attr : '$1'.
 Definition -> Block : '$1'.
+Definition -> Comment : '$1'.
+
 %
 % Block
 %
@@ -104,6 +108,12 @@ Label -> string : unwrap_value(extract_value('$1')).
 %
 
 Attr -> identifier '=' Expr : build_ast_node('Attr', #{name => unwrap_value(extract_value('$1')), expr => '$3'}).
+
+%
+% Comment
+%
+Comment -> line_comment : build_ast_node('Comment', #{type => line, lines => extract_value('$1')}).
+
 
 %
 % Expr
