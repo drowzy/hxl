@@ -101,7 +101,7 @@ Label -> string : unwrap_value(extract_value('$1')).
 % Attr
 %
 
-Attr -> identifier '=' Expr : build_ast_node('Attr', #{name => extract_value('$1'), expr => '$3'}).
+Attr -> identifier '=' Expr : build_ast_node('Attr', #{name => unwrap_value(extract_value('$1')), expr => '$3'}).
 
 %
 % Expr

@@ -3,20 +3,23 @@ defmodule HCL.ParserTest do
   alias HCL.Parser
 
   alias HCL.Ast.{
+    AccessOperation,
     Attr,
+    Binary,
     Block,
     Body,
     Comment,
+    ForExpr,
     FunctionCall,
     Identifier,
     Literal,
     Object,
     TemplateExpr,
-    Tuple
+    Tuple,
+    Unary
   }
 
   describe "body parser" do
-    @tag :skip
     test "can parse complete config" do
       hcl = """
       io_mode = "async"
@@ -34,25 +37,7 @@ defmodule HCL.ParserTest do
       }
       """
 
-      {:ok,
-       [
-         "io_mode",
-         "async",
-         "service",
-         "web_proxy",
-         "listen_addr",
-         "127.0.0.1:8080",
-         "process",
-         "main",
-         "command",
-         "/usr/local/bin/awesome-app",
-         "server",
-         "process",
-         "mgmt",
-         "command",
-         "/usr/local/bin/awesome-app",
-         "mgmt"
-       ], _, _, _, _} = Parser.parse(hcl)
+      {:ok, []} = parse(hcl)
     end
 
     test "can parse comments" do
@@ -61,7 +46,7 @@ defmodule HCL.ParserTest do
         #{seq} hello_world
         """
 
-        {:ok, %Body{statements: [%Comment{}]}} = Parser.parse(hcl)
+        {:ok, %Body{statements: [%Comment{}]}} = parse(hcl)
       end
     end
 
@@ -77,7 +62,7 @@ defmodule HCL.ParserTest do
            %Attr{name: "a", expr: %Literal{value: {:int, 1}}},
            %Attr{name: "b", expr: %Literal{value: {:int, 2}}}
          ]
-       }} = Parser.parse(hcl)
+       }} = parse(hcl)
     end
 
     test "supports attrs & blocks" do
@@ -98,58 +83,254 @@ defmodule HCL.ParserTest do
              body: %Body{statements: [%Attr{name: "b", expr: %Literal{value: {:int, 2}}}]}
            }
          ]
-       }} = Parser.parse(hcl)
+       }} = parse(hcl)
     end
   end
 
-  describe "attr parser" do
-    test "parses attr assignment with spaces" do
-      assert {:ok, %Body{statements: [attr]}} = Parser.parse("a = 1")
-      assert attr.name == "a"
-      assert attr.expr == %Literal{value: {:int, 1}}
+  describe "Binary/unary exprs" do
+    test "can parse unary ops: >, >=, <, <=, ==" do
+      for op <- ["-", "!"] do
+        op_atom = String.to_existing_atom(op)
+
+        assert {:ok,
+                %Body{
+                  statements: [
+                    %Attr{
+                      expr: %Unary{
+                        operator: ^op_atom,
+                        expr: %Literal{value: {:int, 1}}
+                      }
+                    }
+                  ]
+                }} = parse("a = #{op}1")
+      end
     end
 
-    test "parses attr assignment without spaces" do
-      assert {:ok, %Body{statements: [attr]}} = Parser.parse("a=1")
-      assert attr.name == "a"
-      assert attr.expr == %Literal{value: {:int, 1}}
+    test "can parse comparison ops: >, >=, <, <=, ==" do
+      for op <- [">", ">=", "<", "<=", "=="] do
+        op_atom = String.to_existing_atom(op)
+
+        assert {:ok,
+                %Body{
+                  statements: [
+                    %Attr{
+                      expr: %Binary{
+                        operator: ^op_atom,
+                        left: %Literal{value: {:int, 1}},
+                        right: %Literal{value: {:int, 2}}
+                      }
+                    }
+                  ]
+                }} = parse("a = 1 #{op} 2")
+      end
     end
 
-    test "parses decimal values" do
-      assert {:ok, %Body{statements: [attr]}} = Parser.parse("a = 1.1")
-      assert attr.name == "a"
-      assert attr.expr == %Literal{value: {:decimal, 1.1}}
+    test "can parse arithemtic ops: +, -, /, *" do
+      for op <- ["+", "-", "/", "*"] do
+        op_atom = String.to_existing_atom(op)
+
+        assert {:ok,
+                %Body{
+                  statements: [
+                    %Attr{
+                      expr: %Binary{
+                        operator: ^op_atom,
+                        left: %Literal{value: {:int, 1}},
+                        right: %Literal{value: {:int, 2}}
+                      }
+                    }
+                  ]
+                }} = parse("a = 1 #{op} 2")
+      end
     end
 
-    test "parses tuples" do
-      assert {:ok, %Body{statements: [%Attr{expr: tuple}]}} =
-               Parser.parse("a = [1, true, null, \"string\"]")
+    test "can parse logic ops: &&, ||" do
+      for op <- ["&&", "||"] do
+        op_atom = String.to_existing_atom(op)
 
-      assert tuple == %Tuple{
-               values: [
-                 %Literal{value: {:int, 1}},
-                 %Literal{value: {:bool, true}},
-                 %Literal{value: {:null, nil}},
-                 %TemplateExpr{delimiter: nil, lines: ["string"]}
-               ]
-             }
+        assert {:ok,
+                %Body{
+                  statements: [
+                    %Attr{
+                      expr: %Binary{
+                        operator: ^op_atom,
+                        left: %Literal{value: {:int, 1}},
+                        right: %Literal{value: {:int, 2}}
+                      }
+                    }
+                  ]
+                }} = parse("a = 1 #{op} 2")
+      end
+    end
+  end
+
+  describe "function calls" do
+    test "parses 0-arity functions" do
+      assert {:ok, %Body{statements: [%Attr{expr: %FunctionCall{} = call}]}} = parse("a = func()")
+      assert call.arity == 0
+      assert call.args == []
+      assert call.name == "func"
     end
 
-    @tag :skip
-    test "parses objects" do
-      assert {:ok, %Body{statements: [%Attr{expr: %Object{}}]}} =
-               Parser.parse("a = { a: 1, b: true }")
+    test "parses 1-arity functions" do
+      assert {:ok, %Body{statements: [%Attr{expr: %FunctionCall{} = call}]}} =
+               parse("a = func(1)")
+
+      assert call.arity == 1
+      refute Enum.empty?(call.args)
+      assert call.name == "func"
     end
 
-    test "parses variable expressions" do
-      assert {:ok, %Body{statements: [attr]}} = Parser.parse("a = b")
-      assert attr.name == "a"
-      assert attr.expr == %Identifier{name: "b"}
+    test "parses n-arity functions" do
+      assert {:ok, %Body{statements: [%Attr{expr: %FunctionCall{} = call}]}} =
+               parse("a = func(1, 2, 3, 4, 5)")
+
+      assert call.arity == 5
+      refute Enum.empty?(call.args)
+      assert call.name == "func"
+    end
+  end
+
+  describe "collections" do
+    test "parses tuples of single type " do
+      assert {:ok, %Body{statements: [%Attr{expr: %Tuple{values: values}}]}} =
+               parse("a = [1, 2, 3]")
+
+      assert values == [
+               %Literal{value: {:int, 1}},
+               %Literal{value: {:int, 2}},
+               %Literal{value: {:int, 3}}
+             ]
     end
 
-    test "parses function calls" do
-      assert {:ok, %Body{statements: [%Attr{name: "a", expr: %FunctionCall{name: "func"}}]}} =
-               Parser.parse("a = func(1)")
+    test "tuple with newlines" do
+      hcl = "a = [\n  1,\n  2,\n  3\n]"
+
+      assert {:ok, %Body{statements: [%Attr{expr: %Tuple{values: values}}]}} = parse(hcl)
+      refute values == []
+    end
+
+    test "parses empty tuple" do
+      assert {:ok, %Body{statements: [%Attr{expr: %Tuple{values: []}}]}} = parse("a = []")
+    end
+
+    test "parses tuples of different types " do
+      {:ok, %Body{statements: [%Attr{expr: %Tuple{values: values}}]}} =
+        parse("a = [1, true, null, \"string\"]")
+
+      assert values == [
+               %Literal{value: {:int, 1}},
+               %Literal{value: {:bool, true}},
+               %Literal{value: {:null, nil}},
+               %TemplateExpr{lines: ["string"]}
+             ]
+    end
+
+    test "parses objects with `:` assignment" do
+      assert {:ok, %Body{statements: [%Attr{expr: %Object{kvs: kvs}}]}} =
+               parse("a = { a: 1, b: true }")
+
+      assert is_map(kvs)
+      assert kvs["a"] == %Literal{value: {:int, 1}}
+      assert kvs["b"] == %Literal{value: {:bool, true}}
+    end
+
+    test "parses objects with `=` assignment" do
+      assert {:ok, %Body{statements: [%Attr{expr: %Object{kvs: kvs}}]}} =
+               parse("a = { a = 1, b = true }")
+
+      assert is_map(kvs)
+      assert kvs["a"] == %Literal{value: {:int, 1}}
+      assert kvs["b"] == %Literal{value: {:bool, true}}
+    end
+  end
+
+  describe "tuple for expr" do
+    test "with variable enumerable" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = [for v in d: v]")
+
+      assert for_expr.keys == ["v"]
+      assert for_expr.enumerable == %Identifier{name: "d"}
+      assert for_expr.body == %Identifier{name: "v"}
+      assert for_expr.enumerable_type == :for_tuple
+      assert for_expr.conditional == nil
+    end
+
+    test "with multiple keys" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = [for i, j in d: j]")
+
+      assert for_expr.keys == ["i", "j"]
+    end
+
+    test "with inline enumerable" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = [for v in [1, 2]: v]")
+
+      assert for_expr.keys == ["v"]
+      assert %Tuple{} = for_expr.enumerable
+      assert for_expr.body == %Identifier{name: "v"}
+      assert for_expr.enumerable_type == :for_tuple
+    end
+
+    test "with function bodies" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = [for v in [1, 2]: func(v)]")
+
+      assert %FunctionCall{name: "func"} = for_expr.body
+    end
+
+    test "with conditional" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = [for v in [1, 2]: v if v]")
+
+      assert for_expr.keys == ["v"]
+      assert %Tuple{} = for_expr.enumerable
+      assert for_expr.body == %Identifier{name: "v"}
+      assert for_expr.enumerable_type == :for_tuple
+      assert for_expr.conditional == %Identifier{name: "v"}
+    end
+  end
+
+  describe "object for expr" do
+    test "with variable enumerable" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = {for v in d: v => v}")
+
+      assert for_expr.keys == ["v"]
+      assert for_expr.enumerable == %Identifier{name: "d"}
+      assert for_expr.body == {%Identifier{name: "v"}, %Identifier{name: "v"}}
+      assert for_expr.enumerable_type == :for_object
+      assert for_expr.conditional == nil
+    end
+
+    test "with multiple keys" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = {for i, j in d: j => i}")
+
+      assert for_expr.keys == ["i", "j"]
+    end
+
+    test "with inline enumerable" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = {for v in [1, 2]: v => v}")
+
+      assert %Tuple{} = for_expr.enumerable
+    end
+
+    test "with function bodies" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = {for v in [1, 2]: v => func(v)}")
+
+      assert {_, %FunctionCall{name: "func"}} = for_expr.body
+    end
+
+    test "with conditional" do
+      assert {:ok, %Body{statements: [%Attr{expr: %ForExpr{} = for_expr}]}} =
+               parse("a = {for v in [1, 2]: v => v if v}")
+
+      assert for_expr.conditional == %Identifier{name: "v"}
     end
   end
 
@@ -171,7 +352,7 @@ defmodule HCL.ParserTest do
                       expr: %TemplateExpr{delimiter: "EOT", lines: ["hello", "world"]}
                     }
                   ]
-                }} = Parser.parse(hcl)
+                }} = parse(hcl)
       end
     end
 
@@ -181,7 +362,112 @@ defmodule HCL.ParserTest do
       assert {:ok,
               %Body{
                 statements: [%Attr{expr: %TemplateExpr{delimiter: nil, lines: ["hello world"]}}]
-              }} = Parser.parse(hcl)
+              }} = parse(hcl)
+    end
+  end
+
+  describe "expr term ops" do
+    test "can parse Expr with index access" do
+      assert {:ok,
+              %Body{
+                statements: [
+                  %Attr{
+                    expr: %AccessOperation{
+                      operation: :index_access,
+                      key: _key,
+                      expr: %Tuple{}
+                    }
+                  }
+                ]
+              }} = parse("a = [1,2,3][1]")
+    end
+
+    test "can parse Expr with get attr operations" do
+      assert {:ok,
+              %Body{
+                statements: [
+                  %Attr{
+                    expr: %AccessOperation{
+                      operation: :attr_access,
+                      key: "c",
+                      expr: %AccessOperation{
+                        expr: %Identifier{name: "a"},
+                        operation: :attr_access,
+                        key: "b"
+                      }
+                    }
+                  }
+                ]
+              }} = parse("a = a.b.c")
+    end
+
+    test "can parse Expr with attr splat operations" do
+      assert {:ok,
+              %Body{
+                statements: [
+                  %Attr{
+                    expr: %AccessOperation{
+                      operation: :attr_access,
+                      key: "b",
+                      expr: %AccessOperation{
+                        expr: %Identifier{name: "a"},
+                        operation: :attr_splat,
+                        key: "*"
+                      }
+                    }
+                  }
+                ]
+              }} = parse("a = a.*.b")
+    end
+
+    test "can parse Expr with multiple splat operations" do
+      assert {:ok,
+              %Body{
+                statements: [
+                  %Attr{
+                    expr: %AccessOperation{
+                      expr: %AccessOperation{
+                        expr: %AccessOperation{
+                          expr: %AccessOperation{
+                            expr: %Identifier{name: "a"},
+                            key: "*",
+                            operation: :attr_splat
+                          },
+                          key: "b",
+                          operation: :attr_access
+                        },
+                        key: "c",
+                        operation: :attr_access
+                      },
+                      key: %HCL.Ast.Literal{value: {:int, 1}},
+                      operation: :index_access
+                    }
+                  }
+                ]
+              }} = parse("a = a.*.b.c[1]")
+    end
+
+    test "can parse Expr with full splat operations" do
+      assert {:ok,
+              %Body{
+                statements: [
+                  %Attr{
+                    expr: %AccessOperation{
+                      expr: %AccessOperation{
+                        expr: %AccessOperation{
+                          expr: %Identifier{name: "a"},
+                          key: "*",
+                          operation: :full_splat
+                        },
+                        key: "c",
+                        operation: :attr_access
+                      },
+                      key: %Literal{value: {:int, 1}},
+                      operation: :index_access
+                    }
+                  }
+                ]
+              }} = parse("a = a[*].b.c[1]")
     end
   end
 
@@ -198,7 +484,7 @@ defmodule HCL.ParserTest do
                     type: "service"
                   }
                 ]
-              }} = Parser.parse("service http { a = 1 }")
+              }} = parse("service http { a = 1 }")
     end
 
     test "parses blocks with identifiers with newlines" do
@@ -213,7 +499,7 @@ defmodule HCL.ParserTest do
                     type: "service"
                   }
                 ]
-              }} = Parser.parse("service http {\n a = 1 \n}")
+              }} = parse("service http {\n a = 1 \n}")
     end
 
     test "parses blocks with string literals" do
@@ -228,7 +514,7 @@ defmodule HCL.ParserTest do
                     type: "service"
                   }
                 ]
-              }} = Parser.parse(~s(service "http" { a = 1 }))
+              }} = parse(~s(service "http" { a = 1 }))
     end
 
     test "parses block within a block" do
@@ -240,7 +526,7 @@ defmodule HCL.ParserTest do
       }
       """
 
-      {:ok, %Body{statements: [%Block{} = b]}} = Parser.parse(hcl)
+      {:ok, %Body{statements: [%Block{} = b]}} = parse(hcl)
       assert b.type == "service"
       assert b.labels == ["http"]
       assert %Body{statements: [%Block{}]} = b.body
@@ -276,7 +562,13 @@ defmodule HCL.ParserTest do
              type: "service"
            }
          ]
-       }} = Parser.parse(hcl)
+       }} = parse(hcl)
     end
+  end
+
+  defp parse(hcl) do
+    tokens = hcl |> HCL.Lexer.tokenize() |> elem(1)
+
+    :hcl_parser.parse(tokens)
   end
 end
