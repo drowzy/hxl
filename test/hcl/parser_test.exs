@@ -1,6 +1,6 @@
 defmodule HCL.ParserTest do
   use ExUnit.Case
-  alias HCL.Parser
+  import HCL.Parser, only: [parse: 1]
 
   alias HCL.Ast.{
     AccessOperation,
@@ -565,11 +565,5 @@ defmodule HCL.ParserTest do
          ]
        }} = parse(hcl)
     end
-  end
-
-  defp parse(hcl) do
-    tokens = hcl |> HCL.Lexer.tokenize() |> elem(1)
-
-    :hcl_parser.parse(tokens)
   end
 end

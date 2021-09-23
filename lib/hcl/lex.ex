@@ -6,24 +6,6 @@ defmodule HCL.Lexer do
   negative_sign = ascii_char([?-])
   whitespace = ascii_string([?\s, ?\n], min: 1)
 
-  # Boolean :: true | false
-  #
-  # bool =
-  #   choice([
-  #     string("true") |> replace(true),
-  #     string("false") |> replace(false)
-  #   ])
-  #   |> post_traverse({:labeled_token, [:bool]})
-
-  # # Null
-  # #
-  # null = string("null") |> replace(:null) |> post_traverse({:labeled_token, [:null]})
-
-  #
-  # Reserved
-  #
-  # reserved = choice([bool, null])
-
   ignoreed = ignore(whitespace)
 
   operators_delimiters_keywords =
