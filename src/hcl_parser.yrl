@@ -55,6 +55,7 @@ in
 'if'
 int
 null
+string
 text
 
 .
@@ -80,6 +81,7 @@ Expr -> Expr BinaryOp Expr      : build_ast_node('Binary', #{left => '$1', opera
 % Template
 %
 Template -> heredoc identifier Texts identifier : #{delimiter => unwrap_value(extract_value('$2')), lines => '$3'}.
+Template -> string : #{delimiter => nil, lines => extract_value('$1')}.
 
 Texts -> Text Texts : ['$1' | '$2'].
 Texts -> Text : ['$1'].

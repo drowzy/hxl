@@ -19,18 +19,17 @@ defmodule HCL.Parser.TemplateExprTest do
     end
   end
 
-  # test "quoted template" do
-  #   hcl = ~S("hello world")
+  test "quoted template" do
+    hcl = ~S(a = "hello world")
 
-  #   assert {:ok, [%TemplateExpr{lines: ["hello world"]}], _, _, _, _} = Parser.parse_template(hcl)
-  # end
+    assert {:ok, %Attr{expr: %TemplateExpr{lines: ["hello world"]}}} = parse(hcl)
+  end
 
-  # test "quoted template with escape chars" do
-  #   hcl = ~S("hello world \"string\"")
+  test "quoted template with escape chars" do
+    hcl = ~S(a = "hello world \"string\"")
 
-  #   assert {:ok, [%TemplateExpr{lines: ["hello world \"string\""]}], _, _, _, _} =
-  #            Parser.parse_template(hcl)
-  # end
+    assert {:ok, %Attr{expr: %TemplateExpr{lines: ["hello world \"string\""]}}} = parse(hcl)
+  end
 
   defp parse(str) do
     {:ok, tokens, _, _, _, _} = Lexer.tokenize(str)
