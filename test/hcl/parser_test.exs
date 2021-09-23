@@ -40,6 +40,7 @@ defmodule HCL.ParserTest do
       assert {:ok, %Body{}} = parse(hcl)
     end
 
+    @tag :skip
     test "can parse comments" do
       for seq <- ["//", "#"] do
         hcl = """
