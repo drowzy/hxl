@@ -202,11 +202,11 @@ defmodule HCL.Eval do
     {iterated, ctx}
   end
 
-  defp do_eval(%AccessOperation{expr: expr, operation: op}, ctx) do
+  defp do_eval(%AccessOperation{expr: expr, operation: op, key: key}, ctx) do
     {expr_value, ctx} = do_eval(expr, ctx)
-    {access_fn, ctx} = eval_op(op, ctx)
+    access_fn = eval_op(op, key, ctx)
 
-    {Kernel.get_in(expr_value, access_fn), ctx}
+    {Kernel.get_in(expr_value, List.wrap(access_fn)), ctx}
   end
 
   defp do_eval({k, v}, ctx) do
@@ -216,40 +216,20 @@ defmodule HCL.Eval do
     {{k_value, v_value}, ctx}
   end
 
-  defp eval_op({:index_access, index_expr}, ctx) do
-    {index, ctx} = do_eval(index_expr, ctx)
+  defp eval_op(:index_access, index_expr, ctx) do
+    {index, _} = do_eval(index_expr, ctx)
 
-    {[Access.at(index)], ctx}
+    Access.at(index)
   end
 
-  defp eval_op({:attr_access, attrs}, ctx) do
-    accs = for attr <- attrs, do: Access.key!(attr)
-
-    {accs, ctx}
+  defp eval_op(:attr_access, attr, _ctx) do
+    Access.key!(attr)
   end
 
-  defp eval_op({:attr_splat, access_op}, ctx) do
-    {accs, ctx} = eval_op(access_op, ctx)
-    func = access_map(accs)
+  defp eval_op(op, attrs, ctx) when op in [:attr_splat, :full_splat] do
+    accs = for {op, key} <- attrs, do: eval_op(op, key, ctx)
 
-    {[func], ctx}
-  end
-
-  defp eval_op({:full_splat, access_ops}, ctx) do
-    {accs, ctx} =
-      Enum.reduce(access_ops, {[], ctx}, fn op, {acc, ctx} ->
-        {op, ctx} = eval_op(op, ctx)
-
-        {List.flatten([op | acc]), ctx}
-      end)
-
-    func =
-      accs
-      |> Enum.reverse()
-      |> access_map()
-      |> List.wrap()
-
-    {func, ctx}
+    access_map(accs)
   end
 
   defp access_map(ops) do

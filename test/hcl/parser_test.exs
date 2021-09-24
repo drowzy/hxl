@@ -407,13 +407,9 @@ defmodule HCL.ParserTest do
                 statements: [
                   %Attr{
                     expr: %AccessOperation{
-                      operation: :attr_access,
-                      key: "b",
-                      expr: %AccessOperation{
-                        expr: %Identifier{name: "a"},
-                        operation: :attr_splat,
-                        key: "*"
-                      }
+                      expr: %HCL.Ast.Identifier{name: "a"},
+                      key: [attr_access: "b"],
+                      operation: :attr_splat
                     }
                   }
                 ]
@@ -427,17 +423,9 @@ defmodule HCL.ParserTest do
                   %Attr{
                     expr: %AccessOperation{
                       expr: %AccessOperation{
-                        expr: %AccessOperation{
-                          expr: %AccessOperation{
-                            expr: %Identifier{name: "a"},
-                            key: "*",
-                            operation: :attr_splat
-                          },
-                          key: "b",
-                          operation: :attr_access
-                        },
-                        key: "c",
-                        operation: :attr_access
+                        expr: %Identifier{name: "a"},
+                        key: [attr_access: "b", attr_access: "c"],
+                        operation: :attr_splat
                       },
                       key: %HCL.Ast.Literal{value: {:int, 1}},
                       operation: :index_access
@@ -453,17 +441,13 @@ defmodule HCL.ParserTest do
                 statements: [
                   %Attr{
                     expr: %AccessOperation{
-                      expr: %AccessOperation{
-                        expr: %AccessOperation{
-                          expr: %Identifier{name: "a"},
-                          key: "*",
-                          operation: :full_splat
-                        },
-                        key: "c",
-                        operation: :attr_access
-                      },
-                      key: %Literal{value: {:int, 1}},
-                      operation: :index_access
+                      expr: %HCL.Ast.Identifier{name: "a"},
+                      key: [
+                        attr_access: "b",
+                        attr_access: "c",
+                        index_access: %HCL.Ast.Literal{value: {:int, 1}}
+                      ],
+                      operation: :full_splat
                     }
                   }
                 ]

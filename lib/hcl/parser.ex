@@ -14,6 +14,7 @@ defmodule HCL.Parser do
     case parse(input) do
       {:ok, body} ->
         body
+
       {:error, reason} ->
         raise "err #{inspect(reason)}"
 

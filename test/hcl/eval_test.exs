@@ -179,10 +179,19 @@ defmodule HCL.EvalTest do
     assert %{"b" => 2, "c" => 3} = parse_and_eval(hcl)
   end
 
+  test "eval/1 with nested index access ops" do
+    hcl = """
+    a = ["a", [1,2,3]]
+    b = a[1][2]
+    """
+
+    assert %{"b" => 3} = parse_and_eval(hcl)
+  end
+
   test "eval/1 with attr access ops" do
     hcl = """
-    a = { b = { c = 1 } }
-    b = a.b.c
+    a = { b = { c = { d = 1} } }
+    b = a.b.c.d
     """
 
     assert %{"b" => 1} = parse_and_eval(hcl)

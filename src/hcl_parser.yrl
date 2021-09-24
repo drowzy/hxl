@@ -22,11 +22,14 @@ ForId
 ForIntro
 FullSplat
 GetAttr
+GetAttrs
 Index
 Literal
 Label
 Labels
 Splat
+SplatAccessor
+SplatAccessors
 Template
 Texts
 Text
@@ -138,15 +141,22 @@ Access -> GetAttr : '$1' .
 Access -> Splat   : '$1' .
 
 Index -> '[' Arg ']' : {index_access, '$2'}.
+
+GetAttrs -> GetAttr GetAttrs : ['$1' | '$2'].
+GetAttrs -> '$empty' : [].
 GetAttr -> '.' identifier : {attr_access, unwrap_value(extract_value('$2'))}.
 
 %
 % Splat
 %
+SplatAccessors -> SplatAccessor SplatAccessors : ['$1' | '$2'].
+SplatAccessors -> '$empty': [].
+SplatAccessor -> Index : '$1'.
+SplatAccessor -> GetAttr : '$1'.
 Splat -> AttrSplat : '$1'.
 Splat -> FullSplat : '$1'.
-AttrSplat -> '.' '*' : {attr_splat, <<"*">>}.
-FullSplat -> '[' '*' ']' Access : {full_splat, <<"*">>}.
+AttrSplat -> '.' '*' GetAttrs : {attr_splat, '$3'}.
+FullSplat -> '[' '*' ']' SplatAccessors : {full_splat, '$4'}.
 
 %
 % Template

@@ -115,6 +115,7 @@ defmodule HCL.Lexer do
     |> utf8_string([not: ?\n], min: 1)
     |> ignore(ascii_char([?\n]))
     |> post_traverse({:labeled_token, [:line_comment]})
+
   #
   # Templates
   #
