@@ -91,8 +91,8 @@ resource "upcloud_server" "server1" {
 - [x] Body
 - [x] Attributes
 - [x] Blocks
-- [ ] One-line blocks
-- [X] Expressions
+- [x] One-line blocks
+- [x] Expressions
   - [x] [Expr term](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms)
     - [x] Literal Value
     - [x] Collection Value

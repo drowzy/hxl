@@ -456,6 +456,14 @@ defmodule HCL.ParserTest do
   end
 
   describe "block parser" do
+    test "one-line blocks" do
+      hcl = """
+        service http { a = 1 }
+        service tcp { a = 1 }
+      """
+
+      {:ok, %Body{statements: [%Block{}, %Block{}]}} = parse(hcl)
+    end
     test "parses blocks with identifiers" do
       assert {:ok,
               %Body{
