@@ -22,7 +22,7 @@ end
 
 * Decode from string or file
 * Aims to be fully compliant with the [HCL](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md) specification
-* Function & Variables support during evaluation
+* Function & variables support during evaluation
 
 ## Example Usage
 

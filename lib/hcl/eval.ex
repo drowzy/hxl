@@ -39,9 +39,14 @@ defmodule HCL.Eval do
     Unary
   }
 
-  defstruct [:functions, document: %{}, symbol_table: %{}]
+  defstruct [:functions, :key_encoder, document: %{}, symbol_table: %{}]
 
-  @type t :: %__MODULE__{document: map(), functions: map(), symbol_table: map()}
+  @type t :: %__MODULE__{
+          document: map(),
+          functions: map(),
+          symbol_table: map(),
+          key_encoder: (binary -> term())
+        }
 
   @doc """
   Evaluates the Ast by walking the tree recursivly. Each node will be evaluated
@@ -51,14 +56,35 @@ defmodule HCL.Eval do
     functions = Keyword.get(opts, :functions, %{})
     symbol_table = Keyword.get(opts, :variables, %{})
 
-    do_eval(hcl, %__MODULE__{functions: functions, symbol_table: symbol_table})
+    key_encoder =
+      opts
+      |> Keyword.get(:keys, :strings)
+      |> key_encoder()
+
+    do_eval(hcl, %__MODULE__{
+      key_encoder: key_encoder,
+      functions: functions,
+      symbol_table: symbol_table
+    })
   end
+
+  defp key_encoder(:strings), do: &Function.identity/1
+  defp key_encoder(:atoms), do: &String.to_atom/1
+  defp key_encoder(:atoms!), do: &String.to_existing_atom/1
+  defp key_encoder(fun) when is_function(fun, 1), do: fun
+
+  defp key_encoder(arg),
+    do:
+      raise(
+        ArgumentError,
+        "Invalid :keys option '#{inspect(arg)}', valid options :strings, :atoms, :atoms!, (binary -> term)"
+      )
 
   defp do_eval(%Body{statements: stmts}, ctx) do
     Enum.reduce(stmts, ctx, fn x, acc ->
       case do_eval(x, acc) do
         {{k, v}, acc} ->
-          %{acc | document: Map.put(acc.document, k, v)}
+          %{acc | document: Map.put(acc.document, ctx.key_encoder.(k), v)}
 
         {map, acc} when is_map(map) ->
           %{acc | document: Map.merge(acc.document, map)}
@@ -86,11 +112,11 @@ defmodule HCL.Eval do
     # }
     block_scope =
       [type | labels]
+      |> Enum.map(ctx.key_encoder)
       |> scope([])
       |> Enum.reverse()
 
-    block_ctx =
-      do_eval(body, %__MODULE__{symbol_table: ctx.symbol_table, functions: ctx.functions})
+    block_ctx = do_eval(body, %{ctx | document: %{}})
 
     {put_in(ctx.document, block_scope, block_ctx.document), ctx}
   end

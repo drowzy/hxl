@@ -1,6 +1,34 @@
 defmodule HCL.EvalTest do
   use ExUnit.Case
 
+  test "keys :atoms" do
+    hcl = """
+    a = 1
+    b "c" "d" {
+      e = 2
+    }
+    """
+
+    assert %{a: 1} = parse_and_eval(hcl, keys: :atoms)
+  end
+
+  test "keys :atoms with variables" do
+    hcl = """
+    a = b
+    """
+
+    assert %{a: 1} = parse_and_eval(hcl, keys: :atoms, variables: %{"b" => 1})
+  end
+
+  test "keys :atoms with functions" do
+    hcl = """
+    a = upper("a")
+    """
+
+    assert %{a: "A"} =
+             parse_and_eval(hcl, keys: :atoms, functions: %{"upper" => &String.capitalize/1})
+  end
+
   test "eval/1 attr literal int" do
     hcl = """
     a = 1
@@ -262,4 +290,12 @@ defmodule HCL.EvalTest do
 
     doc
   end
+
+  hcl = """
+  b "c" "d" {
+  e = 2
+  }
+  """
+
+  hcl |> HCL.Parser.parse!() |> HCL.Eval.eval(keys: :atoms)
 end

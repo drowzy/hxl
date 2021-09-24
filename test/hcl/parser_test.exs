@@ -464,6 +464,7 @@ defmodule HCL.ParserTest do
 
       {:ok, %Body{statements: [%Block{}, %Block{}]}} = parse(hcl)
     end
+
     test "parses blocks with identifiers" do
       assert {:ok,
               %Body{

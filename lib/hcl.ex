@@ -7,6 +7,7 @@ defmodule HCL do
   @type opt ::
           {:variables, map()}
           | {:functions, map()}
+          | {:keys, :atoms | :string}
   @type opts :: [opt()]
 
   @doc """
@@ -44,6 +45,11 @@ defmodule HCL do
 
   * `:functions` - A map of `(<function_name> -> <function>)` to make available in document evaluation.
   * `:variables` - A map of Top level variables that should be injected into the context when evaluating the document.
+  * `:keys` - controls how keys in the parsed AST are evaluated. Possible values are:
+    * `:strings` (default) - evaluates keys as strings
+    * `:atoms` - converts keys to atoms with `String.to_atom/1`
+    * `:atoms!` - converts keys to atoms with `String.to_existing_atom/1`
+    * `(key -> term)` - converts keys using the provided function
 
 
   ## Examples
