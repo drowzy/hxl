@@ -1,4 +1,6 @@
 defmodule HXL.Ast.Block do
+  @moduledoc false
+
   defstruct [:type, :labels, :body]
 
   @type t :: %__MODULE__{

@@ -1,7 +1,6 @@
 defmodule HXL do
-  @moduledoc """
-  Documentation for `HXL`.
-  """
+  @moduledoc File.read!(Path.join([__DIR__, "..", "README.md"]))
+
   alias __MODULE__.{Parser, Eval}
 
   @type opt ::
@@ -17,8 +16,8 @@ defmodule HXL do
 
   ## Examples
 
-  iex> HXL.decode_file("/path/to/file.hcl")
-  {:ok, %{"a" => "b"}}
+      iex> HXL.decode_file("/path/to/file.hcl")
+      {:ok, %{"a" => "b"}}
   """
   @spec decode_file(Path.t(), opts()) :: {:ok, map()} | {:error, term()}
   def decode_file(path, opts \\ []) do

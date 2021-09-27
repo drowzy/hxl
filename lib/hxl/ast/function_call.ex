@@ -1,4 +1,6 @@
 defmodule HXL.Ast.FunctionCall do
+  @moduledoc false
+
   defstruct [:args, :arity, :name]
 
   @type t :: %__MODULE__{

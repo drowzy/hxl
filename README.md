@@ -6,18 +6,6 @@
 
 An Elixir implementation of [HCL](https://github.com/hashicorp/hcl)
 
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `hcl` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:hcl, "~> 0.1.0"}
-  ]
-end
-```
 ## Features
 
 * Decode from string or file
@@ -89,6 +77,18 @@ service "http" {
 
 {:ok %HXL.Body{}} = HXL.decode_as_ast(hcl)
 
+```
+
+## Installation
+
+Add `hxl` to your list of dependencies in `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:hxl, "~> 0.1.0"}
+  ]
+end
 ```
 
 ## HCL Syntax Specification

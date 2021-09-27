@@ -1,5 +1,6 @@
-# TODO might need two different expressions
 defmodule HXL.Ast.ForExpr do
+  @moduledoc false
+
   defstruct [
     :keys,
     :enumerable,

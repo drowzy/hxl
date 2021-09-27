@@ -1,5 +1,5 @@
 defmodule HXL.Error do
-  @moduledoc false
+  @moduledoc "HXL.Error"
 
   defexception [:message]
 

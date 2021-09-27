@@ -1,26 +1,5 @@
 defmodule HXL.Eval do
-  @moduledoc """
-  Evaluates the HXL AST into either a partially applied structure or materialized structure
-
-  ## Examples
-
-  With assignement:
-
-    %HXL.Ast.Body{} = body = HXL.from_binary("a = 1")
-    %{"a" => 1} = HXL.Eval.eval(body)
-
-
-  Expressions:
-
-    %HXL.Ast.Body{} = body = HXL.from_binary("a = 1 + 1 + (4 * 2)")
-    %{"a" => 10} = HXL.Eval.eval(body)
-
-  Functions:
-
-     hcl = "a = trim("    a ")"
-     %HXL.Ast.Body{} = body = HXL.from_binary(hcl)
-     %{"a" => "a"} = HXL.Eval.eval(body, functions: %{"trim" => &String.trim/1})
-  """
+  @moduledoc false
 
   alias HXL.Ast.{
     AccessOperation,
@@ -49,8 +28,23 @@ defmodule HXL.Eval do
         }
 
   @doc """
-  Evaluates the Ast by walking the tree recursivly. Each node will be evaluated
+  Evaluates the Ast by walking the tree recursivly.
+
+  The resulting document is fully evaluated. Note if any syntax elements such as undefined variables / functions,
+  will result in an error being raised.
+
+
+  ## Examples
+
+      hcl = "a = trim("    a ")"
+      {:ok, %HXL.Ast.Body{} = body} = HXL.decode_as_ast(hcl)
+      %{"a" => "a"} = HXL.Eval.eval(body, functions: %{"trim" => &String.trim/1})
+
+      hcl = "a = b"
+      {:ok, %HXL.Ast.Body{} = body} = HXL.decode_as_ast(hcl)
+      %{"a" => 1} = HXL.Eval.eval(body, variables: %{"b" => 1})
   """
+
   @spec eval(term(), Keyword.t()) :: t()
   def eval(hcl, opts \\ []) do
     functions = Keyword.get(opts, :functions, %{})
