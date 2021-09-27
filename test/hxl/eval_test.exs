@@ -29,6 +29,17 @@ defmodule HXL.EvalTest do
              parse_and_eval(hcl, keys: :atoms, functions: %{"upper" => &String.capitalize/1})
   end
 
+  test "eval/1 blocks with same type" do
+    hcl = """
+    a "b" {}
+
+    a "c" {}
+    """
+
+    ctx = parse_and_eval(hcl)
+    assert %{"a" => %{"b" => %{}, "c" => %{}}} == ctx
+  end
+
   test "eval/1 attr literal int" do
     hcl = """
     a = 1
