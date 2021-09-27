@@ -130,14 +130,16 @@ defmodule HXL.Eval do
   defp do_eval(%Unary{expr: expr, operator: op}, ctx) do
     {value, ctx} = do_eval(expr, ctx)
 
-    {apply(Kernel, op, [value]), ctx}
+    {eval_unary_op(op, value), ctx}
   end
 
   defp do_eval(%Binary{left: left, operator: op, right: right}, ctx) do
     {left_value, ctx} = do_eval(left, ctx)
     {right_value, ctx} = do_eval(right, ctx)
 
-    {apply(Kernel, op, [left_value, right_value]), ctx}
+    value = eval_bin_op(op, left_value, right_value)
+
+    {value, ctx}
   end
 
   defp do_eval(%Literal{value: value}, ctx) do
@@ -268,6 +270,21 @@ defmodule HXL.Eval do
   end
 
   defp ast_value_to_value({_, value}), do: value
+
+  defp eval_unary_op(:!, expr), do: !expr
+  defp eval_unary_op(op, expr), do: apply(Kernel, op, [expr])
+
+  defp eval_bin_op(:&&, left, right) do
+    left && right
+  end
+
+  defp eval_bin_op(:||, left, right) do
+    left || right
+  end
+
+  defp eval_bin_op(op, left, right) do
+    apply(Kernel, op, [left, right])
+  end
 
   def scope([key], acc) do
     [key | acc]
