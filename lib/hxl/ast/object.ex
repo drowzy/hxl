@@ -1,4 +1,4 @@
-defmodule HCL.Ast.Object do
+defmodule HXL.Ast.Object do
   defstruct [:kvs]
 
   @type t :: %__MODULE__{

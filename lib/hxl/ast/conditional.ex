@@ -1,4 +1,4 @@
-defmodule HCL.Ast.Conditional do
+defmodule HXL.Ast.Conditional do
   defstruct [:predicate, :then, :else]
 
   @type t :: %__MODULE__{

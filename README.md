@@ -1,4 +1,4 @@
-# HCL
+# HXL
 
 ---
 
@@ -54,7 +54,7 @@ resource "upcloud_server" "server1" {
   }
 
   connection {
-    host        = self.network_interface[0].ip_address
+    host        = "127.0.0.2"
     type        = "ssh"
     user        = "root"
     private_key = file("~/.ssh/rsa_private_key")
@@ -68,15 +68,28 @@ resource "upcloud_server" "server1" {
 }
 """
 
-{:ok, config_file} = HCL.decode(hcl, functions: %{"file" => &File.read/1})
+{:ok, config_file} = HXL.decode(hcl, functions: %{"file" => &File.read/1})
 ```
 
 ### From file
 
 ```elixir
-{:ok, config_file} = HCL.decode_file("/path/to/file")
+{:ok, config_file} = HXL.decode_file("/path/to/file")
 ```
+
 ### As ast
+
+```
+hcl = """
+service "http" {
+  a = 1
+  b = 2
+}
+"""
+
+{:ok %HXL.Body{}} = HXL.decode_as_ast(hcl)
+
+```
 
 ## HCL Syntax Specification
 

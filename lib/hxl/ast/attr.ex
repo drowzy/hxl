@@ -1,4 +1,4 @@
-defmodule HCL.Ast.Attr do
+defmodule HXL.Ast.Attr do
   defstruct [:name, :expr]
 
   @type t :: %__MODULE__{

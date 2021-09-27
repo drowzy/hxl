@@ -1,8 +1,8 @@
-defmodule HCL.ParserTest do
+defmodule HXL.ParserTest do
   use ExUnit.Case
-  import HCL.Parser, only: [parse: 1]
+  import HXL.Parser, only: [parse: 1]
 
-  alias HCL.Ast.{
+  alias HXL.Ast.{
     AccessOperation,
     Attr,
     Binary,
@@ -407,7 +407,7 @@ defmodule HCL.ParserTest do
                 statements: [
                   %Attr{
                     expr: %AccessOperation{
-                      expr: %HCL.Ast.Identifier{name: "a"},
+                      expr: %HXL.Ast.Identifier{name: "a"},
                       key: [attr_access: "b"],
                       operation: :attr_splat
                     }
@@ -427,7 +427,7 @@ defmodule HCL.ParserTest do
                         key: [attr_access: "b", attr_access: "c"],
                         operation: :attr_splat
                       },
-                      key: %HCL.Ast.Literal{value: {:int, 1}},
+                      key: %HXL.Ast.Literal{value: {:int, 1}},
                       operation: :index_access
                     }
                   }
@@ -441,11 +441,11 @@ defmodule HCL.ParserTest do
                 statements: [
                   %Attr{
                     expr: %AccessOperation{
-                      expr: %HCL.Ast.Identifier{name: "a"},
+                      expr: %HXL.Ast.Identifier{name: "a"},
                       key: [
                         attr_access: "b",
                         attr_access: "c",
-                        index_access: %HCL.Ast.Literal{value: {:int, 1}}
+                        index_access: %HXL.Ast.Literal{value: {:int, 1}}
                       ],
                       operation: :full_splat
                     }

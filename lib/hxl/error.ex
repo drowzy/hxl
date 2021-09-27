@@ -1,4 +1,4 @@
-defmodule HCL.Error do
+defmodule HXL.Error do
   @moduledoc false
 
   defexception [:message]

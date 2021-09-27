@@ -1,4 +1,5 @@
-defmodule HCL.Lexer do
+defmodule HXL.Lexer do
+  @moduledoc false
   import NimbleParsec
 
   digit = ascii_char([?0..?9])

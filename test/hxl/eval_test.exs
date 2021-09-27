@@ -1,4 +1,4 @@
-defmodule HCL.EvalTest do
+defmodule HXL.EvalTest do
   use ExUnit.Case
 
   test "keys :atoms" do
@@ -285,8 +285,8 @@ defmodule HCL.EvalTest do
   defp parse_and_eval(hcl, opts \\ []) do
     %{document: doc} =
       hcl
-      |> HCL.Parser.parse!()
-      |> HCL.Eval.eval(opts)
+      |> HXL.Parser.parse!()
+      |> HXL.Eval.eval(opts)
 
     doc
   end
@@ -297,5 +297,5 @@ defmodule HCL.EvalTest do
   }
   """
 
-  hcl |> HCL.Parser.parse!() |> HCL.Eval.eval(keys: :atoms)
+  hcl |> HXL.Parser.parse!() |> HXL.Eval.eval(keys: :atoms)
 end

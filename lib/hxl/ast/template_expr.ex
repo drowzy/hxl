@@ -1,4 +1,4 @@
-defmodule HCL.Ast.TemplateExpr do
+defmodule HXL.Ast.TemplateExpr do
   defstruct [:delimiter, :lines]
 
   @type t :: %__MODULE__{

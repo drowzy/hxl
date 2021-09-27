@@ -1,4 +1,4 @@
-defmodule HCL.Ast.AccessOperation do
+defmodule HXL.Ast.AccessOperation do
   defstruct [:operation, :expr, :key]
 
   @type t :: %__MODULE__{

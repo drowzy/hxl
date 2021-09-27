@@ -1,4 +1,4 @@
-defmodule HCL.Ast.Binary do
+defmodule HXL.Ast.Binary do
   defstruct [:operator, :left, :right]
 
   @type t :: %__MODULE__{

@@ -1,4 +1,4 @@
-defmodule HCLTest do
+defmodule HXLTest do
   use ExUnit.Case
 
   test "TODO" do

@@ -292,7 +292,7 @@ Literal -> null    : {null, nil}.
 Erlang code.
 
 build_ast_node(Type, Data) ->
-    'Elixir.Kernel':struct(list_to_atom("Elixir.HCL.Ast." ++ atom_to_list(Type)), Data).
+    'Elixir.Kernel':struct(list_to_atom("Elixir.HXL.Ast." ++ atom_to_list(Type)), Data).
 
 extract_token_value({Token, _Loc, Value}) ->
     {Token, unwrap_value(Value)}.

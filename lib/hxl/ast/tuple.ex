@@ -1,4 +1,4 @@
-defmodule HCL.Ast.Tuple do
+defmodule HXL.Ast.Tuple do
   defstruct [:values]
 
   @type t :: %__MODULE__{

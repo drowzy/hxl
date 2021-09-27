@@ -1,8 +1,8 @@
-defmodule HCL.Ast.Unary do
+defmodule HXL.Ast.Unary do
   defstruct [:operator, :expr]
 
   @type t :: %__MODULE__{
           operator: :! | :-,
-          expr: HCL.Ast.expr_term()
+          expr: HXL.Ast.expr_term()
         }
 end

@@ -1,4 +1,4 @@
-defmodule HCL.Ast.Comment do
+defmodule HXL.Ast.Comment do
   defstruct [:lines, :type]
 
   @type t :: %__MODULE__{

@@ -1,4 +1,4 @@
-defmodule HCL.Ast.Block do
+defmodule HXL.Ast.Block do
   defstruct [:type, :labels, :body]
 
   @type t :: %__MODULE__{

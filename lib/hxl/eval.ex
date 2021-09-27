@@ -1,28 +1,28 @@
-defmodule HCL.Eval do
+defmodule HXL.Eval do
   @moduledoc """
-  Evaluates the HCL AST into either a partially applied structure or materialized structure
+  Evaluates the HXL AST into either a partially applied structure or materialized structure
 
   ## Examples
 
   With assignement:
 
-    %HCL.Ast.Body{} = body = HCL.from_binary("a = 1")
-    %{"a" => 1} = HCL.Eval.eval(body)
+    %HXL.Ast.Body{} = body = HXL.from_binary("a = 1")
+    %{"a" => 1} = HXL.Eval.eval(body)
 
 
   Expressions:
 
-    %HCL.Ast.Body{} = body = HCL.from_binary("a = 1 + 1 + (4 * 2)")
-    %{"a" => 10} = HCL.Eval.eval(body)
+    %HXL.Ast.Body{} = body = HXL.from_binary("a = 1 + 1 + (4 * 2)")
+    %{"a" => 10} = HXL.Eval.eval(body)
 
   Functions:
 
      hcl = "a = trim("    a ")"
-     %HCL.Ast.Body{} = body = HCL.from_binary(hcl)
-     %{"a" => "a"} = HCL.Eval.eval(body, functions: %{"trim" => &String.trim/1})
+     %HXL.Ast.Body{} = body = HXL.from_binary(hcl)
+     %{"a" => "a"} = HXL.Eval.eval(body, functions: %{"trim" => &String.trim/1})
   """
 
-  alias HCL.Ast.{
+  alias HXL.Ast.{
     AccessOperation,
     Attr,
     Binary,

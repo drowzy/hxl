@@ -1,6 +1,6 @@
-defmodule HCL do
+defmodule HXL do
   @moduledoc """
-  Documentation for `HCL`.
+  Documentation for `HXL`.
   """
   alias __MODULE__.{Parser, Eval}
 
@@ -17,7 +17,7 @@ defmodule HCL do
 
   ## Examples
 
-  iex> HCL.decode_file("/path/to/file.hcl")
+  iex> HXL.decode_file("/path/to/file.hcl")
   {:ok, %{"a" => "b"}}
   """
   @spec decode_file(Path.t(), opts()) :: {:ok, map()} | {:error, term()}
@@ -42,7 +42,7 @@ defmodule HCL do
   end
 
   @doc """
-  Reads a `HCL` document from file, returns the document directly or raises `HCL.Error`.
+  Reads a `HCL` document from file, returns the document directly or raises `HXL.Error`.
 
   See `decode_file/1`
   """
@@ -50,7 +50,7 @@ defmodule HCL do
   def decode_file!(path, opts \\ []) do
     case decode_file(path, opts) do
       {:ok, body} -> body
-      {:error, reason} -> raise HCL.Error, reason
+      {:error, reason} -> raise HXL.Error, reason
     end
   end
 
@@ -80,14 +80,14 @@ defmodule HCL do
 
       iex> hcl = "a = upper(trim(\"   a  \"))"
       "a = upper(trim(\"   a  \"))"
-      iex> HCL.decode(hcl, functions: %{"upper" => &String.capitalize/1, "trim" => &String.trim/1})
+      iex> HXL.decode(hcl, functions: %{"upper" => &String.capitalize/1, "trim" => &String.trim/1})
       {:ok, %{"a" => "A"}}
 
   Using variables:
 
       iex> hcl = "a = b"
       "a = b"
-      iex> HCL.decode(hcl, variables: %{"b" => "B"})
+      iex> HXL.decode(hcl, variables: %{"b" => "B"})
       {:ok, %{"a" => "B"}}
 
   """
@@ -100,7 +100,7 @@ defmodule HCL do
   end
 
   @doc """
-  Reads a `HCL` document from a binary. Returns the document or  raises `HCL.Error`.
+  Reads a `HCL` document from a binary. Returns the document or  raises `HXL.Error`.
 
   See `from_binary/1`
   """
@@ -108,23 +108,23 @@ defmodule HCL do
   def decode!(bin, opts \\ []) do
     case decode(bin, opts) do
       {:ok, doc} -> doc
-      {:error, reason} -> raise HCL.Error, reason
+      {:error, reason} -> raise HXL.Error, reason
     end
   end
 
   @doc """
-  Decode a binary to a  `HCL` document AST.
+  Decode a binary to a  `HXL` document AST.
 
   ## Examples
 
-      iex> HCL.decode_as_ast("a = 1")
-      {:ok, %HCL.Ast.Body{
+      iex> HXL.decode_as_ast("a = 1")
+      {:ok, %HXL.Ast.Body{
         statements: [
-          %HCL.Ast.Attr{
-            expr: %HCL.Ast.Literal{value: {:int, 1}}, name: "a"}
+          %HXL.Ast.Attr{
+            expr: %HXL.Ast.Literal{value: {:int, 1}}, name: "a"}
         ]
       }}
   """
-  @spec decode_as_ast(binary()) :: {:ok, HCL.Ast.t()} | {:error, term()}
+  @spec decode_as_ast(binary()) :: {:ok, HXL.Ast.t()} | {:error, term()}
   defdelegate decode_as_ast(binary), to: __MODULE__.Parser, as: :parse
 end
