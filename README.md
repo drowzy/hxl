@@ -2,7 +2,7 @@
 
 ---
 
-![CI](https://github.com/drowzy/hcl/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/drowzy/hxl/actions/workflows/ci.yml/badge.svg)
 
 An Elixir implementation of [HCL](https://github.com/hashicorp/hcl)
 
