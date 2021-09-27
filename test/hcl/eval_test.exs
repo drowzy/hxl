@@ -293,7 +293,7 @@ defmodule HCL.EvalTest do
 
   hcl = """
   b "c" "d" {
-  e = 2
+    e = 2
   }
   """
 

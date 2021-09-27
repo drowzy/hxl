@@ -12,23 +12,45 @@ defmodule HCL do
 
   @doc """
   Reads a `HCL` document from file.
+
+  Uses same options as `decode/2`
+
+  ## Examples
+
+  iex> HCL.decode_file("/path/to/file.hcl")
+  {:ok, %{"a" => "b"}}
   """
   @spec decode_file(Path.t(), opts()) :: {:ok, map()} | {:error, term()}
   def decode_file(path, opts \\ []) do
     with {:ok, bin} <- File.read(path),
          {:ok, _body} = return <- decode(bin, opts) do
       return
+    else
+      # File error
+      {:error, reason} when is_atom(reason) ->
+        msg =
+          reason
+          |> :file.format_error()
+          |> List.to_string()
+
+        {:error, msg}
+
+      # Lex/parse error
+      {:error, _reason} = err ->
+        err
     end
   end
 
   @doc """
-  Reads a `HCL` document from file. see `decode_file/1`
+  Reads a `HCL` document from file, returns the document directly or raises `HCL.Error`.
+
+  See `decode_file/1`
   """
-  @spec decode_file!(Path.t(), opts) :: map()
+  @spec decode_file!(Path.t(), opts) :: map() | no_return()
   def decode_file!(path, opts \\ []) do
     case decode_file(path, opts) do
       {:ok, body} -> body
-      {:error, reason} -> raise "err #{inspect(reason)}"
+      {:error, reason} -> raise HCL.Error, reason
     end
   end
 
@@ -78,13 +100,16 @@ defmodule HCL do
   end
 
   @doc """
-  Reads a `HCL` document from a binary. See `from_binary/1`
+  Reads a `HCL` document from a binary. Returns the document or  raises `HCL.Error`.
+
+  See `from_binary/1`
   """
-  @spec decode!(binary(), opts) :: map()
+  @spec decode!(binary(), opts) :: map() | no_return()
   def decode!(bin, opts \\ []) do
-    bin
-    |> Parser.parse!()
-    |> Eval.eval(opts)
+    case decode(bin, opts) do
+      {:ok, doc} -> doc
+      {:error, reason} -> raise HCL.Error, reason
+    end
   end
 
   @doc """

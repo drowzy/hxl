@@ -28,7 +28,8 @@ defmodule HCL.Lexer do
         string("for"),
         string("if"),
         string("in")
-      ]) |> lookahead_not(ascii_char([?a..?z, ?A..?Z, ?0..?9])),
+      ])
+      |> lookahead_not(ascii_char([?a..?z, ?A..?Z, ?0..?9])),
       ascii_char([
         ?=,
         ?!,

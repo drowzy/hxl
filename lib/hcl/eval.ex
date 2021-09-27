@@ -264,9 +264,7 @@ defmodule HCL.Eval do
     end
   end
 
-  defp ast_value_to_value({:int, int}) do
-    int
-  end
+  defp ast_value_to_value({_, value}), do: value
 
   def scope([key], acc) do
     [key | acc]
