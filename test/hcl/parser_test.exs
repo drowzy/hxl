@@ -456,6 +456,18 @@ defmodule HCL.ParserTest do
   end
 
   describe "block parser" do
+    test "single identifier block" do
+      hcl = """
+
+      service {
+        # Comment inside block
+        a = 1
+      }
+      """
+
+      {:ok, %Body{statements: [%Block{type: "service"}]}} = parse(hcl)
+    end
+
     test "one-line blocks" do
       hcl = """
         service http { a = 1 }

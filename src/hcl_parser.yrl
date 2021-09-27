@@ -99,10 +99,9 @@ Definition -> Comment : '$1'.
 %
 
 Block -> identifier Labels '{' ConfigFile '}': build_ast_node('Block', #{type => unwrap_value(extract_value('$1')), labels => '$2', body => '$4' }).
-Block -> identifier '{' Attr '}': build_ast_node('Block', #{type => unwrap_value(extract_value('$1')), labels => [], body => '$3'}).
 
-Labels -> Label : ['$1'].
 Labels -> Label Labels : ['$1' | '$2'].
+Labels -> '$empty' : [].
 
 Label -> identifier : unwrap_value(extract_value('$1')).
 Label -> string : unwrap_value(extract_value('$1')).
