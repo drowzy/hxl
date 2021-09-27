@@ -8,6 +8,7 @@ defmodule HXL.Eval do
     Block,
     Body,
     Comment,
+    Conditional,
     ForExpr,
     FunctionCall,
     Identifier,
@@ -168,6 +169,14 @@ defmodule HXL.Eval do
       state = Map.put(state, k, value)
       {state, ctx}
     end)
+  end
+
+  defp do_eval(%Conditional{predicate: pred, then: then, else: else_}, ctx) do
+    if pred |> do_eval(ctx) |> elem(0) do
+      do_eval(then, ctx)
+    else
+      do_eval(else_, ctx)
+    end
   end
 
   defp do_eval(%FunctionCall{name: name, arity: arity, args: args}, %{functions: funcs} = ctx) do
