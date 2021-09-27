@@ -81,11 +81,13 @@ true
 
 Rootsymbol ConfigFile.
 
+%
+% ConfigFile = Body;
+%
 ConfigFile -> Body : build_ast_node('Body', #{statements => '$1'}).
-%% ConfigFile -> Attr : '$1'.
 
 %
-% Body
+% Body = (Attribute | Block | OneLineBlock)*;
 %
 Body -> Definitions : '$1'.
 Definitions -> Definition Definitions : ['$1' | '$2'].
@@ -95,9 +97,9 @@ Definition -> Block : '$1'.
 Definition -> Comment : '$1'.
 
 %
-% Block
+% Block = Identifier (StringLit|Identifier)* "{" Newline Body "}" Newline;
+% OneLineBlock = Identifier (StringLit|Identifier)* "{" (Identifier "=" Expression)? "}" Newline;
 %
-
 Block -> identifier Labels '{' ConfigFile '}': build_ast_node('Block', #{type => unwrap_value(extract_value('$1')), labels => '$2', body => '$4' }).
 
 Labels -> Label Labels : ['$1' | '$2'].
@@ -105,10 +107,10 @@ Labels -> '$empty' : [].
 
 Label -> identifier : unwrap_value(extract_value('$1')).
 Label -> string : unwrap_value(extract_value('$1')).
-%
-% Attr
-%
 
+%
+% Attribute = Identifier "=" Expression Newline;
+%
 Attr -> identifier '=' Expr : build_ast_node('Attr', #{name => unwrap_value(extract_value('$1')), expr => '$3'}).
 
 %
@@ -118,7 +120,24 @@ Comment -> line_comment : build_ast_node('Comment', #{type => line, lines => ext
 
 
 %
-% Expr
+% Expression = (
+%   ExprTerm |
+%   Operation |
+%   Conditional
+% );
+%
+% ExprTerm = (
+%   LiteralValue |
+%   CollectionValue |
+%   TemplateExpr |
+%   VariableExpr |
+%   FunctionCall |
+%   ForExpr |
+%   ExprTerm Index |
+%   ExprTerm GetAttr |
+%   ExprTerm Splat |
+%   "(" Expression ")"
+%  );
 %
 Expr -> Template                : build_ast_node('TemplateExpr', '$1').
 Expr -> identifier '(' Args ')' : build_ast_node('FunctionCall', #{name => unwrap_value(extract_value('$1')), arity => length('$3'), args => '$3'}).
@@ -134,6 +153,11 @@ Expr -> '(' Expr ')': '$2'.
 
 %
 % Access
+% Index = "[" Expression "]";
+% GetAttr = "." Identifier;
+% Splat = attrSplat | fullSplat;
+% attrSplat = "." "*" GetAttr*;
+% fullSplat = "[" "*" "]" (GetAttr | Index)*;
 %
 Access -> Index   : '$1' .
 Access -> GetAttr : '$1' .
@@ -158,7 +182,15 @@ AttrSplat -> '.' '*' GetAttrs : {attr_splat, '$3'}.
 FullSplat -> '[' '*' ']' SplatAccessors : {full_splat, '$4'}.
 
 %
-% Template
+% TemplateExpr = quotedTemplate | heredocTemplate;
+% quotedTemplate = StringLit;
+% heredocTemplate = (
+%   ("<<" | "<<-") Identifier Newline
+%   (content)
+%   Identifier Newline
+% );
+%
+% StringLit = '"' (content) '"';
 %
 Template -> heredoc identifier Texts identifier : #{delimiter => unwrap_value(extract_value('$2')), lines => '$3'}.
 Template -> string : #{delimiter => nil, lines => extract_value('$1')}.
@@ -167,8 +199,16 @@ Texts -> Text Texts : ['$1' | '$2'].
 Texts -> Text : ['$1'].
 
 Text -> text : unwrap_value(extract_value('$1')).
+
 %
-% Collection
+% CollectionValue = tuple | object;
+% tuple = "[" (
+%         (Expression ("," Expression)* ","?)?
+%          ) "]";
+% object = "{" (
+%         (objectelem ("," objectelem)* ","?)?
+%           ) "}";
+% objectelem = (Identifier | Expression) ("=" | ":") Expression;
 %
 Collection -> '[' Args ']' : build_ast_node('Tuple', #{values => '$2'}).
 Collection -> '{' Args '}' : build_ast_node('Object', #{kvs => maps:from_list('$2')}).
@@ -185,8 +225,13 @@ Arg -> Expr : '$1'.
 
 Assign -> '=' : '$1'.
 Assign -> ':' : '$1'.
+
 %
-% For
+% ForExpr = forTupleExpr | forObjectExpr;
+% forTupleExpr = "[" forIntro Expression forCond? "]";
+% forObjectExpr = "{" forIntro Expression "=>" Expression "..."? forCond? "}";
+% forIntro = "for" Identifier ("," Identifier)? "in" Expression ":";
+% forCond = "if" Expression;
 %
 For -> '[' ForIntro Expr ForCond ']' : build_ast_node('ForExpr', maps:merge('$2', #{body => '$3', conditional => '$4', enumerable_type => for_tuple})).
 For -> '{' ForIntro Expr '=>' Expr ForCond '}' : build_ast_node('ForExpr', maps:merge('$2', #{body => {'$3', '$5'}, conditional => '$6', enumerable_type => for_object})).
@@ -201,6 +246,15 @@ ForId -> identifier : unwrap_value(extract_value('$1')).
 ForCond -> 'if' Expr : '$2'.
 ForCond -> '$empty' : nil.
 
+%
+%
+% Operation = unaryOp | binaryOp;
+% unaryOp = ("-" | "!") ExprTerm;
+% binaryOp = ExprTerm binaryOperator ExprTerm;
+% binaryOperator = compareOperator | arithmeticOperator | logicOperator;
+% compareOperator = "==" | "!=" | "<" | ">" | "<=" | ">=";
+% arithmeticOperator = "+" | "-" | "*" | "/" | "%";
+% logicOperator = "&&" | "||" | "!";
 %
 % Unary
 %
@@ -222,7 +276,12 @@ BinaryOp -> '%'  : '$1'.
 BinaryOp -> '&&' : '$1'.
 BinaryOp -> '||' : '$1'.
 %
-% Literal
+% LiteralValue = (
+%   NumericLit |
+%   "true" |
+%   "false" |
+%   "null"
+% );
 %
 Literal -> int     : extract_token_value('$1').
 Literal -> decimal : {extract_token('$1'), element(1, string:to_float(extract_value('$1')))}.
