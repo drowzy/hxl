@@ -54,6 +54,7 @@ Terminals
 '>='
 '<'
 '<='
+'!='
 '=='
 '+'
 '-'
@@ -268,6 +269,7 @@ BinaryOp -> '>=' : '$1'.
 BinaryOp -> '<'  : '$1'.
 BinaryOp -> '<=' : '$1'.
 BinaryOp -> '==' : '$1'.
+BinaryOp -> '!=' : '$1'.
 BinaryOp -> '+'  : '$1'.
 BinaryOp -> '-'  : '$1'.
 BinaryOp -> '*'  : '$1'.
