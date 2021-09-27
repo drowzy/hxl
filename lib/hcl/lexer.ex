@@ -20,6 +20,7 @@ defmodule HCL.Lexer do
         string("=>")
       ]),
       # Keywords
+      # Asserts so that there isn't any identifiers after the keyword
       choice([
         string("null"),
         string("true"),
@@ -27,7 +28,7 @@ defmodule HCL.Lexer do
         string("for"),
         string("if"),
         string("in")
-      ]),
+      ]) |> lookahead_not(ascii_char([?a..?z, ?A..?Z, ?0..?9])),
       ascii_char([
         ?=,
         ?!,
@@ -189,6 +190,7 @@ defmodule HCL.Lexer do
 
   defp labeled_token(_rest, chars, context, loc, byte_offset, token_name) do
     value = chars |> Enum.reverse()
+
     {[{token_name, line_and_column(loc, byte_offset, length(value)), value}], context}
   end
 
