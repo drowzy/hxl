@@ -67,7 +67,7 @@ resource "upcloud_server" "server1" {
 
 ### As ast
 
-```
+```elixir
 hcl = """
 service "http" {
   a = 1
@@ -93,20 +93,24 @@ end
 
 ## HCL Syntax Specification
 
-### Lexical Elements
-- [x] [Comments](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#comments-and-whitespace)
-- [x] [Identifiers](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#identifiers)
-- [ ] [Operators & delimiters](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#operators-and-delimiters)
-- [x] [Numeric literals](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#numeric-literals)
+### [Lexical Elements](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#lexical-elements)
 
-### Structural Elements
+- [x] Comments
+- [x] Identifiers
+- [x] Operators & delimiters
+- [x] Numeric literals
+
+### [Structural Language](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#structural-elements)
 
 - [x] Body
 - [x] Attributes
 - [x] Blocks
 - [x] One-line blocks
+
+### [Expression language](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expressions)
+
 - [x] Expressions
-  - [x] [Expr term](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#expression-terms)
+  - [x] Expr term
     - [x] Literal Value
     - [x] Collection Value
     - [x] Template Expr
@@ -120,6 +124,11 @@ end
   - [x] Operation
   - [x] Conditional
 
-### Represenations
- - [ ] HCL Native syntax
+### [Template Language](https://github.com/hashicorp/hcl/blob/main/hclsyntax/spec.md#templates)
+- [] TemplateLiteral
+- [] TemplateInterpolation
+- [] TemplateDirective
+
+### Representations
+ - [x] HCL Native syntax
  - [ ] JSON

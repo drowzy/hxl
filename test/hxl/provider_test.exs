@@ -21,4 +21,12 @@ defmodule HXL.ProviderTest do
 
     assert "value" == Application.get_env(:other_config, :value)
   end
+
+  test "overrides any `:keys` opts" do
+    path = Path.join([__DIR__, "fixtures", "provider.hcl"])
+    opts = HXL.Provider.init(path: path, keys: :string)
+    config = HXL.Provider.load([], opts)
+
+    Enum.each(config, fn {k, _} -> assert is_atom(k) end)
+  end
 end

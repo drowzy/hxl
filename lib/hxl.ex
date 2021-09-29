@@ -6,7 +6,7 @@ defmodule HXL do
   @type opt ::
           {:variables, map()}
           | {:functions, map()}
-          | {:keys, :atoms | :string}
+          | {:keys, :atoms | :string | (binary -> term())}
   @type opts :: [opt()]
 
   @doc """
