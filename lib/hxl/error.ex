@@ -21,11 +21,11 @@ defmodule HXL.Error do
   Internal errors to printable messages
   """
   def format_reason({:parse_error, {line, offset}, [reason | info]}) do
-    "#{reason}#{line}:#{offset} #{format_info(info)}"
+    "#{upcase_first(reason)}#{line}:#{offset} #{format_info(info)}"
   end
 
   def format_reason({:lex_error, {line, offset}, rest}) do
-    "unrecognized input: '#{rest}' at #{line}:#{offset}"
+    "Unrecognized input: '#{rest}' at #{line}:#{offset}"
   end
 
   defp format_info(info) when is_list(info) do
@@ -33,4 +33,7 @@ defmodule HXL.Error do
     |> Enum.map(&to_string/1)
     |> Enum.join(" ")
   end
+
+  defp upcase_first(<<char::utf8, rest::binary>>),
+    do: String.upcase(<<char::utf8>>) <> rest
 end

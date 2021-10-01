@@ -10,11 +10,11 @@ defmodule HXL.Parser do
   """
   @spec parse(binary()) :: {:ok, HXL.Ast.t()} | {:error, term()}
   def parse(input) do
-    with {:ok, tokens, _, _, _, _} <- HXL.Lexer.tokenize(input),
+    with {:ok, tokens, <<>>, _, _, _} <- HXL.Lexer.tokenize(input),
          {:ok, ast} <- Parser.parse(tokens) do
       {:ok, ast}
     else
-      {:ok, [], rest, _ctx, loc, _} ->
+      {:ok, _tokens, rest, _ctx, loc, _} ->
         {:error, HXL.Error.format_reason({:lex_error, loc, rest})}
 
       {:error, {loc, _, reason}} ->

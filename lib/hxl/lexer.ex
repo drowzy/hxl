@@ -10,7 +10,6 @@ defmodule HXL.Lexer do
   digit = ascii_char([?0..?9])
   non_zero_digit = ascii_char([?1..?9])
   negative_sign = ascii_char([?-])
-  # whitespace = ascii_string([?\s, ?\n], min: 1)
 
   whitespace = ascii_char([@space, @tab])
 
