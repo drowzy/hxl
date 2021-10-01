@@ -2,12 +2,27 @@ defmodule HXL.Lexer do
   @moduledoc false
   import NimbleParsec
 
+  @newline ?\n
+  @carriage_return ?\r
+  @space ?\s
+  @tab ?\t
+
   digit = ascii_char([?0..?9])
   non_zero_digit = ascii_char([?1..?9])
   negative_sign = ascii_char([?-])
-  whitespace = ascii_string([?\s, ?\n], min: 1)
+  # whitespace = ascii_string([?\s, ?\n], min: 1)
 
-  ignoreed = ignore(whitespace)
+  whitespace = ascii_char([@space, @tab])
+
+  line_end =
+    choice([
+      ascii_char([@newline]),
+      ascii_char([@carriage_return]) |> optional(ascii_char([@newline]))
+    ])
+
+  blankspace = choice([whitespace, line_end])
+
+  ignoreed = ignore(blankspace)
 
   operators_delimiters_keywords =
     choice([
@@ -114,7 +129,7 @@ defmodule HXL.Lexer do
       ignore(string("//")),
       ignore(string("#"))
     ])
-    |> optional(ignore(whitespace))
+    |> optional(ignore(blankspace))
     |> utf8_string([not: ?\n], min: 1)
     |> ignore(ascii_char([?\n]))
     |> post_traverse({:labeled_token, [:line_comment]})
@@ -142,9 +157,9 @@ defmodule HXL.Lexer do
   heredoc =
     choice([ignore(string("<<-")), ignore(string("<<"))])
     |> concat(identifier)
-    |> ignore(whitespace)
+    |> ignore(blankspace)
     |> repeat(text_line)
-    |> optional(ignore(whitespace))
+    |> optional(ignore(blankspace))
     |> post_traverse({:tag_heredoc_terminator, []})
 
   defp tag_heredoc_terminator(_rest, [close_id | content], ctx, loc, byte_offset) do
