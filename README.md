@@ -3,6 +3,7 @@
 ---
 
 ![CI](https://github.com/drowzy/hxl/actions/workflows/ci.yml/badge.svg)
+[![Hex.pm Version](https://img.shields.io/hexpm/v/hxl.svg?style=flat-square)](https://hex.pm/packages/hxl)
 
 An Elixir implementation of [HCL](https://github.com/hashicorp/hcl)
 
