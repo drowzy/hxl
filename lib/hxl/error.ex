@@ -34,6 +34,8 @@ defmodule HXL.Error do
     |> Enum.join(" ")
   end
 
+  defp upcase_first(msg) when is_list(msg), do: msg |> to_string() |> upcase_first()
+
   defp upcase_first(<<char::utf8, rest::binary>>),
     do: String.upcase(<<char::utf8>>) <> rest
 end

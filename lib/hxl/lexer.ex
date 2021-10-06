@@ -151,30 +151,44 @@ defmodule HXL.Lexer do
 
   text_line =
     utf8_string([not: ?\n], min: 1)
-    |> ignore(string("\n"))
+    |> optional(ignore(times(line_end, min: 1)))
+    |> post_traverse({:labeled_token, [:text]})
 
   heredoc =
     choice([ignore(string("<<-")), ignore(string("<<"))])
     |> concat(identifier)
-    |> ignore(blankspace)
-    |> repeat(text_line)
+    |> ignore(optional(repeat(line_end)))
+    |> post_traverse({:tag_heredoc_open_tag, []})
+    |> repeat_while(text_line, {:not_end_tag, []})
+    |> optional(ignore(repeat(blankspace)))
+    |> concat(identifier)
     |> optional(ignore(blankspace))
-    |> post_traverse({:tag_heredoc_terminator, []})
+    |> post_traverse({:tag_heredoc, []})
 
-  defp tag_heredoc_terminator(_rest, [close_id | content], ctx, loc, byte_offset) do
-    content =
-      content
-      |> Enum.map(&tag_text/1)
-      |> Enum.reverse()
+  defp not_end_tag(bin, %{open_tag: tag} = ctx, _, _) do
+    end_tag? =
+      bin
+      |> String.trim()
+      |> String.starts_with?(tag)
 
-    content = [{:heredoc, {0, 0}} | content]
-
-    {[{:identifier, line_and_column(loc, byte_offset, 1), [close_id]} | Enum.reverse(content)],
-     ctx}
+    if end_tag? do
+      {:halt, Map.delete(ctx, :open_tag)}
+    else
+      {:cont, ctx}
+    end
   end
 
-  defp tag_text(text) when is_binary(text), do: {:text, {-1, -1}, [text]}
-  defp tag_text(tag), do: tag
+  defp tag_heredoc_open_tag(_rest, content, ctx, _loc, _byte_offset) do
+    [{:identifier, _, [open_tag]} | _] = content
+
+    {content, Map.put(ctx, :open_tag, open_tag)}
+  end
+
+  defp tag_heredoc(_rest, content, ctx, _loc, _byte_offset) do
+    content = [{:heredoc, {0, 0}} | Enum.reverse(content)]
+
+    {Enum.reverse(content), ctx}
+  end
 
   defparsec(
     :tokenize,

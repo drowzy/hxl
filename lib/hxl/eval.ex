@@ -151,7 +151,7 @@ defmodule HXL.Eval do
     {id_value, ctx}
   end
 
-  defp do_eval(%TemplateExpr{delimiter: nil, lines: lines}, ctx) do
+  defp do_eval(%TemplateExpr{delimiter: _, lines: lines}, ctx) do
     {Enum.join(lines, "\n"), ctx}
   end
 
