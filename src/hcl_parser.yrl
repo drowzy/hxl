@@ -30,7 +30,10 @@ Labels
 Splat
 SplatAccessor
 SplatAccessors
+StringLit
+StringLits
 Template
+TemplateInterpolation
 Texts
 Text
 UnaryOp
@@ -74,7 +77,9 @@ in
 int
 line_comment
 null
-string
+string_part
+t_start
+t_end
 text
 true
 
@@ -107,7 +112,7 @@ Labels -> Label Labels : ['$1' | '$2'].
 Labels -> '$empty' : [].
 
 Label -> identifier : unwrap_value(extract_value('$1')).
-Label -> string : unwrap_value(extract_value('$1')).
+Label -> string_part : unwrap_value(extract_value('$1')).
 
 %
 % Attribute = Identifier "=" Expression Newline;
@@ -194,7 +199,14 @@ FullSplat -> '[' '*' ']' SplatAccessors : {full_splat, '$4'}.
 % StringLit = '"' (content) '"';
 %
 Template -> heredoc identifier Texts identifier : #{delimiter => unwrap_value(extract_value('$2')), lines => '$3'}.
-Template -> string : #{delimiter => nil, lines => extract_value('$1')}.
+Template -> StringLits : #{delimiter => nil, lines => '$1'}.
+
+StringLits -> StringLit StringLits : ['$1' | '$2'].
+StringLits -> StringLit : ['$1'].
+StringLit -> string_part : extract_token_value('$1').
+StringLit -> TemplateInterpolation : '$1'.
+
+TemplateInterpolation -> t_start Expr t_end : '$2'.
 
 Texts -> Text Texts : ['$1' | '$2'].
 Texts -> Text : ['$1'].
