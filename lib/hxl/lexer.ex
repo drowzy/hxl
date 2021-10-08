@@ -136,18 +136,80 @@ defmodule HXL.Lexer do
   #
   # Templates
   #
+  template_interpolation =
+    ignore(
+      choice([
+        string("${~"),
+        string("${")
+      ])
+    )
+    |> parsec(:literals)
+    |> ignore(
+      choice([
+        ascii_char([?}]),
+        string("~}")
+      ])
+    )
+    |> post_traverse({:wrap_block, []})
+
+  defp wrap_block(_rest, content, ctx, loc, byte_offset) do
+    [start, end_] =
+      for tag <- [:t_start, :t_end] do
+        {tag, line_and_column(loc, byte_offset, length([])), []}
+      end
+
+    content = [start | Enum.reverse(content)]
+
+    {[end_ | Enum.reverse(content)], ctx}
+  end
+
+  #
   string_lit =
     ignore(ascii_char([?"]))
     |> repeat(
       lookahead_not(ascii_char([?"]))
       |> choice([
+        template_interpolation,
         ~S(\") |> string() |> replace(?"),
         utf8_char([])
       ])
     )
     |> ignore(ascii_char([?"]))
-    |> reduce({List, :to_string, []})
-    |> post_traverse({:labeled_token, [:string]})
+    |> post_traverse({:assemble_string, []})
+
+  defp assemble_string(_rest, [], ctx, loc, byte_offset) do
+    {[do_label_token(:string_part, [""], loc, byte_offset)], ctx}
+  end
+
+  defp assemble_string(_rest, content, ctx, loc, byte_offset) do
+    {content, _} =
+      content
+      |> Enum.concat([:halt])
+      |> Enum.reduce({[], []}, fn
+        :halt, {_values, []} = acc ->
+          acc
+
+        :halt, {values, part} ->
+          {[do_label_token(:string_part, [List.to_string(part)], loc, byte_offset) | values],
+           part}
+
+        token, {values, [] = part} when is_tuple(token) ->
+          {[token | values], part}
+
+        token, {values, part} when is_tuple(token) ->
+          {[
+             token,
+             do_label_token(:string_part, [List.to_string(part)], loc, byte_offset) | values
+           ], []}
+
+        token, {values, part} ->
+          {values, [token | part]}
+      end)
+
+    {Enum.reverse(content), ctx}
+  end
+
+  # |> reduce({List, :to_string, []})
 
   text_line =
     utf8_string([not: ?\n], min: 1)
@@ -190,6 +252,22 @@ defmodule HXL.Lexer do
     {Enum.reverse(content), ctx}
   end
 
+  defcombinator(
+    :literals,
+    repeat(
+      choice([
+        line_comment,
+        string_lit,
+        ignoreed,
+        string_lit,
+        heredoc,
+        identifier,
+        decimal_value,
+        int
+      ])
+    )
+  )
+
   defparsec(
     :tokenize,
     repeat(
@@ -227,5 +305,9 @@ defmodule HXL.Lexer do
   def line_and_column({line, line_offset}, byte_offset, column_correction) do
     column = byte_offset - line_offset - column_correction + 1
     {line, column}
+  end
+
+  defp do_label_token(token_name, value, loc, byte_offset) do
+    {token_name, line_and_column(loc, byte_offset, length(value)), value}
   end
 end
