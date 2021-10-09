@@ -143,7 +143,15 @@ defmodule HXL.Lexer do
         string("${")
       ])
     )
-    |> parsec(:literals)
+    |> repeat(
+      lookahead_not(
+        choice([
+          ascii_char([?}]),
+          string("~}")
+        ])
+      )
+      |> parsec(:literals)
+    )
     |> ignore(
       choice([
         ascii_char([?}]),
@@ -254,18 +262,17 @@ defmodule HXL.Lexer do
 
   defcombinator(
     :literals,
-    repeat(
-      choice([
-        line_comment,
-        string_lit,
-        ignoreed,
-        string_lit,
-        heredoc,
-        identifier,
-        decimal_value,
-        int
-      ])
-    )
+    choice([
+      line_comment,
+      string_lit,
+      ignoreed,
+      string_lit,
+      heredoc,
+      operators_delimiters_keywords,
+      identifier,
+      decimal_value,
+      int
+    ])
   )
 
   defparsec(

@@ -222,7 +222,7 @@ defmodule HXL.ParserTest do
                %Literal{value: {:int, 1}},
                %Literal{value: {:bool, true}},
                %Literal{value: {:null, nil}},
-               %TemplateExpr{lines: ["string"]}
+               %TemplateExpr{lines: [{:string_part, "string"}]}
              ]
     end
 
@@ -361,8 +361,31 @@ defmodule HXL.ParserTest do
 
       assert {:ok,
               %Body{
-                statements: [%Attr{expr: %TemplateExpr{delimiter: nil, lines: ["hello world"]}}]
+                statements: [
+                  %Attr{
+                    expr: %TemplateExpr{delimiter: nil, lines: [{:string_part, "hello world"}]}
+                  }
+                ]
               }} = parse(hcl)
+    end
+
+    test "template interpolation" do
+      hcl = ~S(a = "hello ${1 + 1} world")
+
+      assert {:ok,
+              %Body{
+                statements: [%Attr{expr: %TemplateExpr{delimiter: nil, lines: lines}}]
+              }} = parse(hcl)
+
+      assert [
+               {:string_part, "hello "},
+               %HXL.Ast.Binary{
+                 left: %HXL.Ast.Literal{value: {:int, 1}},
+                 operator: :+,
+                 right: %HXL.Ast.Literal{value: {:int, 1}}
+               },
+               {:string_part, " world"}
+             ] == lines
     end
   end
 

@@ -60,6 +60,17 @@ defmodule HXL.EvalTest do
     assert %{"a" => "string"} == ctx
   end
 
+  test "eval/1 attr string interpolation" do
+    hcl = ~S"""
+    b = "interpolation"
+    a = "before ${b} after ${1 + 3}"
+    """
+
+    ctx = parse_and_eval(hcl)
+
+    assert %{"a" => "before interpolation after 4"} = ctx
+  end
+
   test "eval/1 attr tuple" do
     hcl = ~S"""
     a = [1,2,3]
