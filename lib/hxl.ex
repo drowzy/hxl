@@ -7,6 +7,7 @@ defmodule HXL do
           {:variables, map()}
           | {:functions, map()}
           | {:keys, :atoms | :string | (binary -> term())}
+          | {:evaluator, HXL.Evaluator.t()}
   @type opts :: [opt()]
 
   @doc """
@@ -64,6 +65,7 @@ defmodule HXL do
 
   The following options can be passed to configure evaluation of the document:
 
+  * `:evaluator` - A `HXL.Evaluator` module to interpret the AST during evaluation. See `HXL.Evaluator` for more information.
   * `:functions` - A map of `(<function_name> -> <function>)` to make available in document evaluation.
   * `:variables` - A map of Top level variables that should be injected into the context when evaluating the document.
   * `:keys` - controls how keys in the parsed AST are evaluated. Possible values are:
