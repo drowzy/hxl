@@ -96,7 +96,7 @@ defmodule HXL.Evaluator.Base do
     {id_value, ctx}
   end
 
-  defp do_eval(%TemplateExpr{delimiter: nil, lines: parts}, ctx) do
+  def eval(%TemplateExpr{delimiter: nil, lines: parts}, ctx) do
     string =
       Enum.reduce(parts, <<>>, fn
         {:string_part, part}, acc ->
@@ -105,7 +105,7 @@ defmodule HXL.Evaluator.Base do
         expr, acc ->
           part =
             expr
-            |> do_eval(ctx)
+            |> eval(ctx)
             |> elem(0)
             |> to_string()
 
@@ -115,7 +115,7 @@ defmodule HXL.Evaluator.Base do
     {string, ctx}
   end
 
-  defp do_eval(%TemplateExpr{delimiter: _delimter, lines: parts}, ctx) do
+  def eval(%TemplateExpr{delimiter: _delimter, lines: parts}, ctx) do
     {Enum.join(parts, "\n"), ctx}
   end
 
