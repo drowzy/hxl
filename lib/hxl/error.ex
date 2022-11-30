@@ -29,9 +29,7 @@ defmodule HXL.Error do
   end
 
   defp format_info(info) when is_list(info) do
-    info
-    |> Enum.map(&to_string/1)
-    |> Enum.join(" ")
+    Enum.map_join(info, " ", &to_string/1)
   end
 
   defp upcase_first(msg) when is_list(msg), do: msg |> to_string() |> upcase_first()
