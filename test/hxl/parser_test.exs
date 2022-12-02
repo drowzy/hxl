@@ -369,6 +369,14 @@ defmodule HXL.ParserTest do
               }} = parse(hcl)
     end
 
+    test "can parse template 'if' directive" do
+      hcl_if_else = ~s|a = "%{if true} \"truthy\" %{else} \"${1 + 1}\" %{endif}"|
+      hcl_if = ~s|a = "%{if true} \"truthy\" %{endif}"|
+
+      assert {:ok, _} = parse(hcl_if_else)
+      assert {:ok, _} = parse(hcl_if)
+    end
+
     test "template interpolation" do
       hcl = ~S(a = "hello ${1 + 1} world")
 

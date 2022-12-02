@@ -33,6 +33,8 @@ SplatAccessors
 StringLit
 StringLits
 Template
+TemplateDirective
+TemplateLang
 TemplateInterpolation
 Texts
 Text
@@ -71,6 +73,8 @@ Terminals
 '%{'
 '${'
 decimal
+'else'
+endif
 false
 for
 heredoc
@@ -81,8 +85,6 @@ int
 line_comment
 null
 string_part
-t_start
-t_end
 text
 true
 
@@ -207,9 +209,14 @@ Template -> StringLits : #{delimiter => nil, lines => '$1'}.
 StringLits -> StringLit StringLits : ['$1' | '$2'].
 StringLits -> StringLit : ['$1'].
 StringLit -> string_part : extract_token_value('$1').
-StringLit -> TemplateInterpolation : '$1'.
+StringLit -> TemplateLang : '$1'.
+
+TemplateLang -> TemplateInterpolation : '$1'.
+TemplateLang -> TemplateDirective : '$1'.
 
 TemplateInterpolation -> '${' Expr '}' : '$2'.
+TemplateDirective -> '%{' 'if' Expr '}' StringLit '%{' endif '}' : {'$3', '$5'} .
+TemplateDirective -> '%{' 'if' Expr '}' StringLit '%{' 'else' '}' StringLit '%{' endif '}' : {'$3', '$5', '$9'} .
 
 Texts -> Text Texts : ['$1' | '$2'].
 Texts -> Text : ['$1'].

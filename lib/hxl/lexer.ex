@@ -44,6 +44,7 @@ defmodule HXL.Lexer do
         string("false"),
         string("for"),
         string("if"),
+        string("else"),
         string("endif"),
         string("in")
       ])
@@ -140,12 +141,27 @@ defmodule HXL.Lexer do
   #
   # Templates
   #
-  template_interpolation =
+  template_start_seq =
     choice([
       string("${~"),
-      string("${")
+      string("${"),
+      string("%{~"),
+      string("%{")
     ])
     |> post_traverse({:atom_token, []})
+
+  template_end_seq =
+    choice([
+      ascii_char([?}]),
+      string("~}")
+    ])
+    |> post_traverse({:atom_token, []})
+
+  template_interpolation =
+    choice([
+      template_start_seq,
+      ignore(optional(blankspace)) |> parsec(:string_lit)
+    ])
     |> repeat(
       lookahead_not(
         choice([
@@ -156,10 +172,7 @@ defmodule HXL.Lexer do
       |> ignore(optional(blankspace))
       |> parsec(:literals)
     )
-    |> choice([
-      ascii_char([?}]) |> post_traverse({:atom_token, []}),
-      string("~}") |> post_traverse({:atom_token, []})
-    ])
+    |> concat(template_end_seq)
 
   template = template_interpolation
 
@@ -176,6 +189,8 @@ defmodule HXL.Lexer do
     )
     |> ignore(ascii_char([?"]))
     |> post_traverse({:assemble_string, []})
+
+  defcombinatorp(:string_lit, string_lit)
 
   defp assemble_string(_rest, [], ctx, loc, byte_offset) do
     {[do_label_token(:string_part, [""], loc, byte_offset)], ctx}
@@ -256,6 +271,7 @@ defmodule HXL.Lexer do
     :literals,
     choice([
       operators_delimiters_keywords,
+      string_lit,
       identifier,
       decimal_value,
       int

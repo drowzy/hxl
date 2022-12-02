@@ -43,6 +43,27 @@ defmodule HXL.LexerTest do
            ] == Enum.map(out, &token_value_pair/1)
   end
 
+  test "can lex directives into parts" do
+    hcl = ~s|"%{if true} truthy %{else} falsy %{endif}"|
+
+    {:ok, out, _, _, _, _} = HXL.Lexer.tokenize(hcl)
+
+    assert [
+             {:"%{", []},
+             {:if, []},
+             {true, []},
+             {:"}", []},
+             {:string_part, [" truthy "]},
+             {:"%{", []},
+             {:else, []},
+             {:"}", []},
+             {:string_part, [" falsy "]},
+             {:"%{", []},
+             {:endif, []},
+             {:"}", []}
+           ] == Enum.map(out, &token_value_pair/1)
+  end
+
   defp token_value_pair({token, _, value}), do: {token, value}
   defp token_value_pair({token, _}), do: {token, []}
 end
