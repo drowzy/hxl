@@ -64,9 +64,12 @@ Terminals
 '/'
 '*'
 '%'
+'$'
 '&&'
 '||'
 '=>'
+'%{'
+'${'
 decimal
 false
 for
@@ -206,7 +209,7 @@ StringLits -> StringLit : ['$1'].
 StringLit -> string_part : extract_token_value('$1').
 StringLit -> TemplateInterpolation : '$1'.
 
-TemplateInterpolation -> t_start Expr t_end : '$2'.
+TemplateInterpolation -> '${' Expr '}' : '$2'.
 
 Texts -> Text Texts : ['$1' | '$2'].
 Texts -> Text : ['$1'].

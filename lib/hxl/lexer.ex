@@ -32,7 +32,9 @@ defmodule HXL.Lexer do
         string("!="),
         string("<="),
         string(">="),
-        string("=>")
+        string("=>"),
+        string("%{"),
+        string("${")
       ]),
       # Keywords
       # Asserts so that there isn't any identifiers after the keyword
@@ -42,6 +44,7 @@ defmodule HXL.Lexer do
         string("false"),
         string("for"),
         string("if"),
+        string("endif"),
         string("in")
       ])
       |> lookahead_not(ascii_char([?a..?z, ?A..?Z, ?0..?9])),
@@ -54,6 +57,7 @@ defmodule HXL.Lexer do
         ?*,
         ?/,
         ?%,
+        ?$,
         ?<,
         ?>,
         ?.,
@@ -137,12 +141,11 @@ defmodule HXL.Lexer do
   # Templates
   #
   template_interpolation =
-    ignore(
-      choice([
-        string("${~"),
-        string("${")
-      ])
-    )
+    choice([
+      string("${~"),
+      string("${")
+    ])
+    |> post_traverse({:atom_token, []})
     |> repeat(
       lookahead_not(
         choice([
@@ -150,34 +153,23 @@ defmodule HXL.Lexer do
           string("~}")
         ])
       )
+      |> ignore(optional(blankspace))
       |> parsec(:literals)
     )
-    |> ignore(
-      choice([
-        ascii_char([?}]),
-        string("~}")
-      ])
-    )
-    |> post_traverse({:wrap_block, []})
+    |> choice([
+      ascii_char([?}]) |> post_traverse({:atom_token, []}),
+      string("~}") |> post_traverse({:atom_token, []})
+    ])
 
-  defp wrap_block(_rest, content, ctx, loc, byte_offset) do
-    [start, end_] =
-      for tag <- [:t_start, :t_end] do
-        {tag, line_and_column(loc, byte_offset, length([])), []}
-      end
+  template = template_interpolation
 
-    content = [start | Enum.reverse(content)]
-
-    {[end_ | Enum.reverse(content)], ctx}
-  end
-
-  #
   string_lit =
     ignore(ascii_char([?"]))
     |> repeat(
       lookahead_not(ascii_char([?"]))
       |> choice([
-        template_interpolation,
+        # template_interpolation,
+        template,
         ~S(\") |> string() |> replace(?"),
         utf8_char([])
       ])
@@ -263,11 +255,6 @@ defmodule HXL.Lexer do
   defcombinator(
     :literals,
     choice([
-      line_comment,
-      string_lit,
-      ignoreed,
-      string_lit,
-      heredoc,
       operators_delimiters_keywords,
       identifier,
       decimal_value,
