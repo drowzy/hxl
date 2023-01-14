@@ -233,6 +233,7 @@ defmodule HXL.Lexer do
 
   heredoc =
     choice([ignore(string("<<-")), ignore(string("<<"))])
+    |> optional(ignore(blankspace))
     |> concat(identifier)
     |> ignore(optional(repeat(line_end)))
     |> post_traverse({:tag_heredoc_open_tag, []})
