@@ -58,7 +58,13 @@ defmodule HXL.Evaluator.Base do
 
     block_ctx = eval(body, %{ctx | document: %{}})
 
-    {put_in(ctx.document, block_scope, block_ctx.document), ctx}
+    next =
+      update_in(ctx.document, block_scope, fn
+        nil -> block_ctx.document
+        acc -> Enum.reverse([block_ctx.document | List.wrap(acc)])
+      end)
+
+    {next, ctx}
   end
 
   def eval(%Attr{name: name, expr: expr}, ctx) do

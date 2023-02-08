@@ -93,6 +93,70 @@ defmodule HXL.EvalTest do
     assert %{"a" => %{"b" => %{"c" => [1, 2, 3]}}} == ctx
   end
 
+  test "eval/1 repeated block" do
+    hcl = """
+    foo {
+      bar = 1
+    }
+
+    foo {
+      bar = 2
+    }
+    """
+
+    ctx = parse_and_eval(hcl)
+
+    assert %{"foo" => [%{"bar" => 1}, %{"bar" => 2}]} == ctx
+  end
+
+  test "eval/1 repeated nested block" do
+    hcl = """
+    foo {
+      bar {
+        baz = 1
+      }
+    }
+
+    foo {
+      bar {
+        baz = 2
+      }
+    }
+    """
+
+    ctx = parse_and_eval(hcl)
+
+    assert %{"foo" => [%{"bar" => %{"baz" => 1}}, %{"bar" => %{"baz" => 2}}]} == ctx
+  end
+
+  test "eval/1 inner repeated nested block" do
+    hcl = """
+    foo {
+      bar {
+        baz = 1
+      }
+      bar {
+        baz = 2
+      }
+    }
+
+    foo {
+      bar {
+        baz = 2
+      }
+    }
+    """
+
+    ctx = parse_and_eval(hcl)
+
+    assert %{
+             "foo" => [
+               %{"bar" => [%{"baz" => 1}, %{"baz" => 2}]},
+               %{"bar" => %{"baz" => 2}}
+             ]
+           } == ctx
+  end
+
   test "eval/1 object" do
     hcl = """
     a = { b = 1 }
@@ -305,10 +369,7 @@ defmodule HXL.EvalTest do
   end
 
   defp parse_and_eval(hcl, opts \\ []) do
-    %{document: doc} =
-      hcl
-      |> HXL.Parser.parse!()
-      |> HXL.Eval.eval(opts)
+    %{document: doc} = hcl |> HXL.Parser.parse!() |> HXL.Eval.eval(opts)
 
     doc
   end
