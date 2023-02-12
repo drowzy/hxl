@@ -46,6 +46,7 @@ defmodule HXL.Lexer do
         string("if"),
         string("else"),
         string("endif"),
+        string("endfor"),
         string("in")
       ])
       |> lookahead_not(ascii_char([?a..?z, ?A..?Z, ?0..?9])),

@@ -34,6 +34,8 @@ StringLit
 StringLits
 Template
 TemplateDirective
+TemplateFor
+TemplateIf
 TemplateLang
 TemplateInterpolation
 Texts
@@ -75,6 +77,7 @@ Terminals
 decimal
 'else'
 endif
+endfor
 false
 for
 heredoc
@@ -215,8 +218,23 @@ TemplateLang -> TemplateInterpolation : '$1'.
 TemplateLang -> TemplateDirective : '$1'.
 
 TemplateInterpolation -> '${' Expr '}' : '$2'.
-TemplateDirective -> '%{' 'if' Expr '}' StringLit '%{' endif '}' : {'$3', '$5'} .
-TemplateDirective -> '%{' 'if' Expr '}' StringLit '%{' 'else' '}' StringLit '%{' endif '}' : {'$3', '$5', '$9'} .
+% TemplateDirective = TemplateIf | TemplateFor
+% TemplateIf = (
+%     ("%{" | "%{~") "if" Expression ("}" | "~}")
+%     Template
+%     (
+%         ("%{" | "%{~") "else" ("}" | "~}")
+%         Template
+%     )?
+%     ("%{" | "%{~") "endif" ("}" | "~}")
+% );
+TemplateDirective -> TemplateIf : '$1'.
+TemplateDirective -> TemplateFor : '$1'.
+
+TemplateIf -> '%{' 'if' Expr '}' StringLit '%{' endif '}' : build_ast_node('Conditional', #{predicate => '$3', then => '$5', 'else' => nil}) .
+TemplateIf -> '%{' 'if' Expr '}' StringLit '%{' 'else' '}' StringLit '%{' endif '}' : build_ast_node('Conditional', #{predicate => '$3', then => '$5', 'else' => '$9'}) .
+
+TemplateFor -> '%{' ForIntro '}' StringLit '%{' endfor '}' : build_ast_node('ForExpr', maps:merge('$2', #{body => '$4', enumerable_type => for_tuple})) .
 
 Texts -> Text Texts : ['$1' | '$2'].
 Texts -> Text : ['$1'].
@@ -256,10 +274,10 @@ Assign -> ':' : '$1'.
 % forIntro = "for" Identifier ("," Identifier)? "in" Expression ":";
 % forCond = "if" Expression;
 %
-For -> '[' ForIntro Expr ForCond ']' : build_ast_node('ForExpr', maps:merge('$2', #{body => '$3', conditional => '$4', enumerable_type => for_tuple})).
-For -> '{' ForIntro Expr '=>' Expr ForCond '}' : build_ast_node('ForExpr', maps:merge('$2', #{body => {'$3', '$5'}, conditional => '$6', enumerable_type => for_object})).
+For -> '[' ForIntro ':' Expr ForCond ']' : build_ast_node('ForExpr', maps:merge('$2', #{body => '$4', conditional => '$5', enumerable_type => for_tuple})).
+For -> '{' ForIntro ':' Expr '=>' Expr ForCond '}' : build_ast_node('ForExpr', maps:merge('$2', #{body => {'$4', '$6'}, conditional => '$7', enumerable_type => for_object})).
 
-ForIntro -> for ForIds in Expr ':' : #{keys => '$2', enumerable => '$4'}.
+ForIntro -> for ForIds in Expr : #{keys => '$2', enumerable => '$4'}.
 
 ForIds -> ForId ',' ForIds : ['$1' | '$3'].
 ForIds -> ForId : ['$1'].

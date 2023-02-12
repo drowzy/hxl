@@ -9,6 +9,7 @@ defmodule HXL.ParserTest do
     Block,
     Body,
     Comment,
+    Conditional,
     ForExpr,
     FunctionCall,
     Identifier,
@@ -369,12 +370,47 @@ defmodule HXL.ParserTest do
               }} = parse(hcl)
     end
 
-    test "can parse template 'if' directive" do
+    test "can parse template 'if' directive into conditional" do
       hcl_if_else = ~s|a = "%{if true} \"truthy\" %{else} \"${1 + 1}\" %{endif}"|
       hcl_if = ~s|a = "%{if true} \"truthy\" %{endif}"|
 
-      assert {:ok, _} = parse(hcl_if_else)
-      assert {:ok, _} = parse(hcl_if)
+      assert {:ok, %Body{statements: [%Attr{expr: %TemplateExpr{lines: [if_else_conditional]}}]}} =
+               parse(hcl_if_else)
+
+      assert %Conditional{
+               predicate: %Literal{value: {:bool, true}},
+               then: {:string_part, "truthy"},
+               else: %Binary{
+                 operator: :+,
+                 left: %Literal{value: {:int, 1}},
+                 right: %Literal{value: {:int, 1}}
+               }
+             } == if_else_conditional
+
+      assert {:ok, %Body{statements: [%Attr{expr: %TemplateExpr{lines: [if_conditional]}}]}} =
+               parse(hcl_if)
+
+      assert %Conditional{
+               predicate: %Literal{value: {:bool, true}},
+               then: {:string_part, "truthy"},
+               else: nil
+             } == if_conditional
+    end
+
+    test "can parse template 'for' directive into conditional" do
+      hcl_for = ~s|a = "%{for v in d} \"truthy\" %{endfor}"|
+      HXL.Lexer.tokenize(hcl_for)
+
+      assert {:ok, %Body{statements: [%Attr{expr: %TemplateExpr{lines: [for_expr]}}]}} =
+               parse(hcl_for)
+
+      assert %ForExpr{
+               keys: ["v"],
+               enumerable: %Identifier{name: "d"},
+               enumerable_type: :for_tuple,
+               body: {:string_part, "truthy"},
+               conditional: nil
+             } == for_expr
     end
 
     test "template interpolation" do
