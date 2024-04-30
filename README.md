@@ -76,7 +76,7 @@ service "http" {
 }
 """
 
-{:ok %HXL.Body{}} = HXL.decode_as_ast(hcl)
+{:ok, %HXL.Body{}} = HXL.decode_as_ast(hcl)
 
 ```
 
